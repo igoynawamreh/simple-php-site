@@ -1,0 +1,24 @@
+RewriteEngine On
+
+# Deny access to file(s) with `.` prefix
+<FilesMatch '^[.]'>
+  Require all denied
+</FilesMatch>
+
+# Deny access to text/markdown file(s)
+<FilesMatch "\.(txt|md)$">
+    Require all denied
+</FilesMatch>
+
+# Deny access to database file(s)
+<FilesMatch "\.(db|sql|sqlite|sqlite3)$">
+    Require all denied
+</FilesMatch>
+
+# Serve existing static non-PHP file(s) directly
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteCond %{REQUEST_FILENAME} !\.php$
+RewriteRule ^ - [L]
+
+# All other request(s) (directory, PHP, virtual URL)
+RewriteRule ^ index.php [L]
