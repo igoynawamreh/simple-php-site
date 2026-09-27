@@ -2,7 +2,7 @@
 
 /**
  * Renders {{ variable }} and {{ function('arg') }} placeholders inside
- * markdown content BEFORE it's passed to Parsedown.
+ * markdown content BEFORE it's passed to @taufik-nurrohman/markdown.
  *
  * Deliberately does NOT use eval() — only whitelisted variables and
  * functions registered via setVar()/setFunction() can be referenced.

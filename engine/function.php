@@ -1,7 +1,7 @@
 <?php
 
-require_once __DIR__ . '/lib/vendor/Parsedown.php';
-require_once __DIR__ . '/lib/vendor/Spyc.php';
+require_once __DIR__ . '/lib/vendor/taufik-nurrohman/markdown/from.php';
+require_once __DIR__ . '/lib/vendor/taufik-nurrohman/y-a-m-l/from.php';
 
 require_once __DIR__ . '/lib/renderer.php';
 require_once __DIR__ . '/lib/markdown.php';
@@ -36,12 +36,15 @@ function url(string $route = ''): string {
  * using a PHP date() format string. Returns '' if $value is empty/null
  * or can't be parsed.
  */
-function format_date(?string $value, string $format = 'Y-m-d'): string {
-    if ($value === null || trim($value) === '') {
+function format_date(DateTimeInterface|null|string $value, string $format = 'Y-m-d'): string {
+    if ($value === null) {
+        return '';
+    }
+    if (is_string($value) && trim($value) === '') {
         return '';
     }
 
-    $timestamp = strtotime($value);
+    $timestamp = strtotime($value instanceof DateTimeInterface ? $value->format('c') : $value);
 
     if ($timestamp === false) {
         return '';
@@ -283,9 +286,7 @@ function render_md_from_file(string $file_path): array {
 
     $body = get_template_renderer()->render($body);
 
-    $parsedown = new Parsedown();
-
     return array_merge($meta, [
-        'content' => $parsedown->text($body),
+        'content' => x\markdown\from($body),
     ]);
 }
