@@ -3,14 +3,14 @@
 <h1><?= e($page['title']) ?></h1>
 
 <p>
-  <a href="<?= url($page['list:url']) ?>"><?= e($page['list:title']) ?></a>
+  <a href="<?= url($page['url:list']) ?>"><?= e($page['title:list']) ?></a>
   <span><?= format_date($page['date'], 'd M Y') ?></span>
 </p>
 
 <p>
   Category:
   <?php if (!empty($page['category'])): ?>
-    <a class="badge text-bg-secondary" href="<?= url($page['list:url']) . '?category=' . urlencode($page['category']) ?>">
+    <a class="badge text-bg-secondary" href="<?= url($page['url:list']) . '?category=' . urlencode($page['category']) ?>">
       <?= e($page['category']) ?>
     </a>
   <?php endif ?>
@@ -21,7 +21,7 @@
   <?php if (!empty($page['tags'])): ?>
     <span class="d-inline-flex gap-1">
       <?php foreach ($page['tags'] as $tag): ?>
-        <a class="badge text-bg-secondary" href="<?= url($page['list:url']) . '?tag=' . urlencode($tag) ?>">
+        <a class="badge text-bg-secondary" href="<?= url($page['url:list']) . '?tag=' . urlencode($tag) ?>">
           <?= e($tag) ?>
         </a>
       <?php endforeach ?>

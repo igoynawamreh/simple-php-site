@@ -106,9 +106,9 @@ if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
 
         $isMarkdown = isset($dynamic_page['content']['dir']);
 
-        $page['list:url']   = '/' . $list_path_t;
+        $page['url:list']   = '/' . $list_path_t;
         $page['title']      = $dynamic_page['title'] ?? $page['title'];
-        $page['list:title'] = $page['title'];
+        $page['title:list'] = $page['title'];
         $is['dynamic'] = true;
 
         if ($route !== $list_path_t && !str_starts_with($route, $list_path_t . '/')) {
