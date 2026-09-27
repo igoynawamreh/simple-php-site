@@ -241,11 +241,11 @@ class Markdown {
         $offset = ($page - 1) * $perPage;
 
         return [
-            'list'        => array_slice($allPages, $offset, $perPage),
-            'total'       => $total,
-            'perPage'     => $perPage,
-            'currentPage' => $page,
-            'totalPages'  => $totalPages,
+            'list'         => array_slice($allPages, $offset, $perPage),
+            'total'        => $total,
+            'per_page'     => $perPage,
+            'current_page' => $page,
+            'last_page'    => $totalPages,
         ];
     }
 }
@@ -281,10 +281,10 @@ function renderPaginationLinks(int $currentPage, int $totalPages, string $baseUr
     }
 
     return [
-        'prev'        => $currentPage > 1 ? $urlFor($currentPage - 1) : null,
-        'next'        => $currentPage < $totalPages ? $urlFor($currentPage + 1) : null,
-        'currentPage' => $currentPage,
-        'totalPages'  => $totalPages,
-        'pages'       => $pages,
+        'prev'         => $currentPage > 1 ? $urlFor($currentPage - 1) : null,
+        'next'         => $currentPage < $totalPages ? $urlFor($currentPage + 1) : null,
+        'current_page' => $currentPage,
+        'last_page'    => $totalPages,
+        'pages'        => $pages,
     ];
 }

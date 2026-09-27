@@ -130,8 +130,8 @@ if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
                     orderDir: $page['param:order_dir'],
                 ));
                 $pagination = array_merge($pagination, renderPaginationLinks(
-                    $pages['currentPage'],
-                    $pages['totalPages'],
+                    $pages['current_page'],
+                    $pages['last_page'],
                     baseUrl: '/' . $list_path_t,
                     extraParams: [
                         'category' => $page['param:category'],

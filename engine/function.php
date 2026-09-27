@@ -97,7 +97,7 @@ function resolve_dynamic_page(string $path): ?array {
  * reading from its markdown metadata cache file (<dir>/.cache.php).
  *
  * $order_by/$order_dir default to whatever is set in the page's config
- * ('markdown.order_by' / 'markdown.order_dir') when not explicitly passed.
+ * ('content.order_by' / 'content.order_dir') when not explicitly passed.
  */
 function generate_list(
     string $path,
