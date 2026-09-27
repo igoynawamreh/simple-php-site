@@ -14,6 +14,10 @@ $page['slug']    = basename($route) === '' ? null : basename($route);
 $page['title']   = $site['title'];
 $page['content'] = null;
 
+foreach ($_GET as $key => $value) {
+    $page['param:' . $key] = $value;
+}
+
 $is['home']         = false;
 $is['static']       = false;
 $is['dynamic']      = false;
@@ -77,20 +81,17 @@ if (defined('STATIC_PAGES') && !empty(STATIC_PAGES)) {
 if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
     foreach (DYNAMIC_PAGES as $list_path => $dynamic_page) {
         $views       = $dynamic_page['view'] ?? [];
-        $list_path_n = trim($list_path, '/');
+        $list_path_t = trim($list_path, '/');
         $markdown    = null;
 
-        $isMarkdown = isset($dynamic_page['content'])
-            && $dynamic_page['content'] !== false
-            && isset($dynamic_page['content']['dir'])
-            && $dynamic_page['content']['dir'] !== false;
+        $isMarkdown = isset($dynamic_page['content']['dir']);
 
-        $page['list_url']   = '/' . $list_path_n;
+        $page['list:url']   = '/' . $list_path_t;
         $page['title']      = $dynamic_page['title'] ?? $page['title'];
-        $page['list_title'] = $page['title'];
+        $page['list:title'] = $page['title'];
         $is['dynamic'] = true;
 
-        if ($route !== $list_path_n && !str_starts_with($route, $list_path_n . '/')) {
+        if ($route !== $list_path_t && !str_starts_with($route, $list_path_t . '/')) {
             continue;
         }
 
@@ -100,46 +101,51 @@ if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
         }
 
         // /{list}/
-        if ($route === $list_path_n) {
+        if ($route === $list_path_t) {
             if (empty($views['list'])) {
                 break;
             }
-            $is['dynamic_list'] = true;
-            if ($isMarkdown) {
-                $page['param_page']      = isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1;
-                $page['param_category']  = $_GET['category'] ?? null;
-                $page['param_tag']       = $_GET['tag'] ?? null;
-                $page['param_q']         = $_GET['q'] ?? null;
-                $page['param_per_page']  = $_GET['per_page'] ?? $dynamic_page['content']['per_page'] ?? 10;
-                $page['param_order_by']  = $_GET['order_by'] ?? $dynamic_page['content']['order_by'] ?? 'title';
-                $page['param_order_dir'] = $_GET['order_dir'] ?? $dynamic_page['content']['order_dir'] ?? 'asc';
 
+            $page = array_merge($page, [
+                'param:page'      => isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1,
+                'param:per_page'  => $_GET['per_page'] ?? $dynamic_page['content']['per_page'] ?? 10,
+                'param:order_by'  => $_GET['order_by'] ?? $dynamic_page['content']['order_by'] ?? 'title',
+                'param:order_dir' => $_GET['order_dir'] ?? $dynamic_page['content']['order_dir'] ?? 'asc',
+            ]);
+            foreach (['category', 'tag', 'q'] as $key) {
+                $page['param:' . $key] = $page['param:' . $key] ?? null;
+            }
+
+            $is['dynamic_list'] = true;
+
+            if ($isMarkdown) {
                 $pages = array_merge($pages, $markdown->getPages(
-                    page: $page['param_page'],
+                    page: $page['param:page'],
                     path: $list_path,
-                    perPage: $page['param_per_page'],
-                    category: $page['param_category'],
-                    tag: $page['param_tag'],
-                    search: $page['param_q'],
-                    orderBy: $page['param_order_by'],
-                    orderDir: $page['param_order_dir'],
+                    perPage: $page['param:per_page'],
+                    category: $page['param:category'],
+                    tag: $page['param:tag'],
+                    search: $page['param:q'],
+                    orderBy: $page['param:order_by'],
+                    orderDir: $page['param:order_dir'],
                 ));
                 $pagination = array_merge($pagination, renderPaginationLinks(
                     $pages['currentPage'],
                     $pages['totalPages'],
-                    baseUrl: '/' . $list_path_n,
+                    baseUrl: '/' . $list_path_t,
                     extraParams: [
-                        'category' => $page['param_category'],
-                        'tag'      => $page['param_tag'],
-                        'q'        => $page['param_q'],
+                        'category' => $page['param:category'],
+                        'tag'      => $page['param:tag'],
+                        'q'        => $page['param:q'],
                     ],
                 ));
             }
+
             require $views['list'];
             exit;
         }
 
-        $pid = substr($route, strlen($list_path_n) + 1);
+        $pid = substr($route, strlen($list_path_t) + 1);
         if ($pid === '' || str_contains($pid, '/')) {
             break;
         }

@@ -9,16 +9,16 @@ $tag_list = generate_tag_list('/article');
 
 <hr>
 
-<form method="GET" action="<?= url($page['list_url']) ?>" class="row g-2 mb-3">
+<form method="GET" action="<?= url($page['list:url']) ?>" class="row g-2 mb-3">
   <div class="col-sm-auto">
-    <input class="form-control form-control-sm" name="q" value="<?= e($page['param_q']) ?>" placeholder="Search Title">
+    <input class="form-control form-control-sm" name="q" value="<?= e($page['param:q']) ?>" placeholder="Search Title">
   </div>
 
   <?php if (!empty($category_list)): ?>
     <div class="col-auto dropdown">
-      <input type="hidden" name="category" value="<?= e($page['param_category']) ?>">
+      <input type="hidden" name="category" value="<?= e($page['param:category']) ?>">
       <button class="btn btn-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
-        Category<?= $page['param_category'] ? ': ' . $page['param_category'] : '' ?>
+        Category<?= $page['param:category'] ? ': ' . $page['param:category'] : '' ?>
       </button>
       <ul class="dropdown-menu">
         <?php foreach ($category_list['list'] as $category): ?>
@@ -34,9 +34,9 @@ $tag_list = generate_tag_list('/article');
 
   <?php if (!empty($tag_list)): ?>
     <div class="col-auto dropdown">
-      <input type="hidden" name="tag" value="<?= e($page['param_tag']) ?>">
+      <input type="hidden" name="tag" value="<?= e($page['param:tag']) ?>">
       <button class="btn btn-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
-        Tags<?= $page['param_tag'] ? ': ' . $page['param_tag'] : '' ?>
+        Tags<?= $page['param:tag'] ? ': ' . $page['param:tag'] : '' ?>
       </button>
       <ul class="dropdown-menu">
         <?php foreach ($tag_list['list'] as $tag): ?>
@@ -50,9 +50,9 @@ $tag_list = generate_tag_list('/article');
     </div>
   <?php endif ?>
 
-  <?php if ($page['param_q'] || $page['param_category'] || $page['param_tag']): ?>
+  <?php if ($page['param:q'] || $page['param:category'] || $page['param:tag']): ?>
     <div class="col-auto d-flex align-items-center">
-      <a class="btn btn-light btn-sm lh-1 d-inline-flex align-items-center justify-content-center" href="<?= url($page['list_url']) ?>">
+      <a class="btn btn-light btn-sm lh-1 d-inline-flex align-items-center justify-content-center" href="<?= url($page['list:url']) ?>">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
           <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
         </svg>
