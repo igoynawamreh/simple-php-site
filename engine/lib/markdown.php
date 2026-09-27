@@ -1,17 +1,15 @@
 <?php
 
-require_once __DIR__ . '/vendor/Parsedown.php';
-require_once __DIR__ . '/vendor/Spyc.php';
+require_once __DIR__ . '/vendor/taufik-nurrohman/markdown/from.php';
+require_once __DIR__ . '/vendor/taufik-nurrohman/y-a-m-l/from.php';
 require_once __DIR__ . '/renderer.php';
 
 class Markdown {
     private string $contentDir;
-    private Parsedown $parser;
     private TemplateRenderer $renderer;
 
     public function __construct(string $contentDir, ?TemplateRenderer $renderer = null) {
         $this->contentDir = rtrim($contentDir, '/');
-        $this->parser = new Parsedown();
         $this->renderer = $renderer ?? new TemplateRenderer();
     }
 
@@ -40,7 +38,7 @@ class Markdown {
     }
 
     /**
-     * Split frontmatter (real YAML, parsed via Spyc) from the markdown body.
+     * Split frontmatter (real YAML, parsed via @taufik-nurrohman/y-a-m-l) from the markdown body.
      * Supports nested values, lists, quoted strings, etc. — not just flat key: value.
      * Returns [meta_array, body_string]
      */
@@ -50,7 +48,7 @@ class Markdown {
 
         if (preg_match('/^---\s*\n(.*?)\n---\s*\n?(.*)$/s', $raw, $matches)) {
             $body = $matches[2];
-            $parsed = Spyc::YAMLLoadString($matches[1]);
+            $parsed = x\y_a_m_l\from($matches[1], true);
             $meta = is_array($parsed) ? $parsed : [];
         }
 
@@ -98,7 +96,17 @@ class Markdown {
             ]);
         }
 
-        usort($pages, fn($a, $b) => strtotime($b['date'] ?? '1970-01-01') <=> strtotime($a['date'] ?? '1970-01-01'));
+        usort($pages, function ($a, $b) {
+            $a = $a['date'] ?? '1970-01-01';
+            $b = $b['date'] ?? '1970-01-01';
+            if ($a instanceof DateTimeInterface) {
+                $a = $a->format('c');
+            }
+            if ($b instanceof DateTimeInterface) {
+                $b = $b->format('c');
+            }
+            return strtotime($b) <=> strtotime($a);
+        });
 
         $title = DYNAMIC_PAGES[$path]['title'] ?? null;
         file_put_contents(
@@ -119,7 +127,7 @@ class Markdown {
     /**
      * Get a single page (frontmatter + markdown parsed to HTML).
      * Template placeholders like {{ home_url }} and {{ url('...') }} inside
-     * the body are resolved BEFORE the body is parsed by Parsedown.
+     * the body are resolved BEFORE the body is parsed by @taufik-nurrohman/markdown.
      * Returns null if the file doesn't exist.
      */
     public function getPage(string $slug): ?array {
@@ -139,7 +147,7 @@ class Markdown {
             'slug'    => $slug,
             'title'   => $meta['title'] ?? $slug,
             'date'    => $meta['date'] ?? null,
-            'content' => $this->parser->text($body), // markdown -> HTML
+            'content' => x\markdown\from($body), // markdown -> HTML
         ]);
     }
 
@@ -169,7 +177,7 @@ class Markdown {
             ));
         }
 
-        // Filter by tag (tags is a YAML list -> PHP array via Spyc)
+        // Filter by tag (tags is a YAML list -> PHP array via @taufik-nurrohman/y-a-m-l)
         if ($tag !== null && $tag !== '') {
             $allPages = array_values(array_filter(
                 $allPages,
