@@ -14,14 +14,14 @@ $page['slug']    = basename($route) === '' ? null : basename($route);
 $page['title']   = $site['title'];
 $page['content'] = null;
 
-$is['home']          = false;
-$is['static']        = false;
-$is['dynamic']       = false;
-$is['dynamic_list']  = false;
-$is['dynamic_item']  = false;
-$is['custom']        = false;
-$is['404']           = false;
-$is['markdown']      = false;
+$is['home']         = false;
+$is['static']       = false;
+$is['dynamic']      = false;
+$is['dynamic_list'] = false;
+$is['dynamic_item'] = false;
+$is['custom']       = false;
+$is['404']          = false;
+$is['markdown']     = false;
 
 /**
  * Home page
@@ -86,7 +86,7 @@ if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
             && $dynamic_page['content']['dir'] !== false;
 
         $page['list_url']   = '/' . $list_path_n;
-        $page['title']       = $dynamic_page['title'] ?? $page['title'];
+        $page['title']      = $dynamic_page['title'] ?? $page['title'];
         $page['list_title'] = $page['title'];
         $is['dynamic'] = true;
 
@@ -109,6 +109,7 @@ if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
                 $page['param_page']      = isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1;
                 $page['param_category']  = $_GET['category'] ?? null;
                 $page['param_tag']       = $_GET['tag'] ?? null;
+                $page['param_q']         = $_GET['q'] ?? null;
                 $page['param_per_page']  = $_GET['per_page'] ?? $dynamic_page['content']['per_page'] ?? 10;
                 $page['param_order_by']  = $_GET['order_by'] ?? $dynamic_page['content']['order_by'] ?? 'title';
                 $page['param_order_dir'] = $_GET['order_dir'] ?? $dynamic_page['content']['order_dir'] ?? 'asc';
@@ -119,6 +120,7 @@ if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
                     perPage: $page['param_per_page'],
                     category: $page['param_category'],
                     tag: $page['param_tag'],
+                    search: $page['param_q'],
                     orderBy: $page['param_order_by'],
                     orderDir: $page['param_order_dir'],
                 ));
@@ -129,6 +131,7 @@ if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
                     extraParams: [
                         'category' => $page['param_category'],
                         'tag'      => $page['param_tag'],
+                        'q'        => $page['param_q'],
                     ],
                 ));
             }

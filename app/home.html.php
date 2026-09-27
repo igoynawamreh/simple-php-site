@@ -13,10 +13,10 @@ $article_list = generate_list(
 
 <?php if (!empty($article_list)): ?>
   <h2><?= e($article_list['title']) ?></h2>
-  <ul>
+  <ul class="d-flex flex-column gap-2">
     <?php foreach ($article_list['list'] as $article): ?>
       <li>
-        <div class="d-flex gap-3">
+        <div class="d-flex flex-column">
           <a href="<?= url($article['url']) ?>">
             <?= e($article['title']) ?>
           </a>

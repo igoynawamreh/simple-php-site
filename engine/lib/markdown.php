@@ -155,6 +155,7 @@ class Markdown {
         int $perPage = 10,
         ?string $category = null,
         ?string $tag = null,
+        ?string $search = null,
         string $orderBy = 'title',
         ?string $orderDir = null
     ): array {
@@ -176,14 +177,41 @@ class Markdown {
             ));
         }
 
-        // Sort by the requested field. Checks top-level keys (slug, title,
-        // date) first, then falls back to frontmatter 'meta' for custom
-        // fields (e.g. 'author', 'priority').
+        // Filter + scoring by title
+        if ($search !== null && $search !== '') {
+            $searchWords = preg_split('/\s+/', trim($search));
+
+            $allPages = array_values(array_filter(array_map(
+                function ($p) use ($searchWords) {
+                    $title = $p['title'] ?? '';
+                    $score = 0;
+
+                    foreach ($searchWords as $word) {
+                        if (stripos($title, $word) !== false) {
+                            $score++;
+                        }
+                    }
+
+                    $p['_searchScore'] = $score;
+                    return $p;
+                },
+                $allPages
+            ), fn($p) => $p['_searchScore'] > 0));
+        }
+
+        // Sort by the requested field
         $orderDir = $orderDir ?? ($orderBy === 'date' ? 'desc' : 'asc');
 
         $getSortValue = fn($p) => $p[$orderBy] ?? null;
 
-        usort($allPages, function ($a, $b) use ($getSortValue, $orderBy, $orderDir) {
+        usort($allPages, function ($a, $b) use ($getSortValue, $orderBy, $orderDir, $search) {
+            if ($search !== null && $search !== '') {
+                $scoreCmp = ($b['_searchScore'] ?? 0) <=> ($a['_searchScore'] ?? 0);
+                if ($scoreCmp !== 0) {
+                    return $scoreCmp;
+                }
+            }
+
             $va = $getSortValue($a);
             $vb = $getSortValue($b);
 

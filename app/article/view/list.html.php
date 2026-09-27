@@ -9,57 +9,63 @@ $tag_list = generate_tag_list('/article');
 
 <hr>
 
-<?php if (!empty($category_list) || !empty($tag_list)): ?>
-  <div class="btn-toolbar mb-3 gap-3">
-    <?php if (!empty($category_list)): ?>
-      <div class="dropdown">
-        <button class="btn btn-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
-          Category<?= $category_list['selected'] ? ': ' . $category_list['selected'] : '' ?>
-        </button>
-        <ul class="dropdown-menu">
-          <?php foreach ($category_list['list'] as $category): ?>
-            <li>
-              <a class="dropdown-item<?= $category['active'] ? ' active' : '' ?>" href="<?= url(merge_query_url($category['url'])) ?>">
-                <?= e($category['title']) ?>
-              </a>
-            </li>
-          <?php endforeach ?>
-        </ul>
-      </div>
-    <?php endif ?>
+<form method="GET" action="<?= url($page['list_url']) ?>" class="row g-2 mb-3">
+  <div class="col-sm-auto">
+    <input class="form-control form-control-sm" name="q" value="<?= e($page['param_q']) ?>" placeholder="Search Title">
+  </div>
 
-    <?php if (!empty($tag_list)): ?>
-      <div class="dropdown">
-        <button class="btn btn-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
-          Tags<?= $tag_list['selected'] ? ': ' . $tag_list['selected'] : '' ?>
-        </button>
-        <ul class="dropdown-menu">
-          <?php foreach ($tag_list['list'] as $tag): ?>
-            <li>
-              <a class="dropdown-item<?= $tag['active'] ? ' active' : '' ?>" href="<?= url(merge_query_url($tag['url'])) ?>">
-                <?= e($tag['title']) ?>
-              </a>
-            </li>
-          <?php endforeach ?>
-        </ul>
-      </div>
-    <?php endif ?>
+  <?php if (!empty($category_list)): ?>
+    <div class="col-auto dropdown">
+      <input type="hidden" name="category" value="<?= e($page['param_category']) ?>">
+      <button class="btn btn-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+        Category<?= $page['param_category'] ? ': ' . $page['param_category'] : '' ?>
+      </button>
+      <ul class="dropdown-menu">
+        <?php foreach ($category_list['list'] as $category): ?>
+          <li>
+            <a class="dropdown-item<?= $category['active'] ? ' active' : '' ?>" href="<?= url(merge_query_url($category['url'])) ?>">
+              <?= e($category['title']) ?>
+            </a>
+          </li>
+        <?php endforeach ?>
+      </ul>
+    </div>
+  <?php endif ?>
 
-    <?php if ($category_list['selected'] || $tag_list['selected']): ?>
+  <?php if (!empty($tag_list)): ?>
+    <div class="col-auto dropdown">
+      <input type="hidden" name="tag" value="<?= e($page['param_tag']) ?>">
+      <button class="btn btn-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+        Tags<?= $page['param_tag'] ? ': ' . $page['param_tag'] : '' ?>
+      </button>
+      <ul class="dropdown-menu">
+        <?php foreach ($tag_list['list'] as $tag): ?>
+          <li>
+            <a class="dropdown-item<?= $tag['active'] ? ' active' : '' ?>" href="<?= url(merge_query_url($tag['url'])) ?>">
+              <?= e($tag['title']) ?>
+            </a>
+          </li>
+        <?php endforeach ?>
+      </ul>
+    </div>
+  <?php endif ?>
+
+  <?php if ($page['param_q'] || $page['param_category'] || $page['param_tag']): ?>
+    <div class="col-auto d-flex align-items-center">
       <a class="btn btn-light btn-sm lh-1 d-inline-flex align-items-center justify-content-center" href="<?= url($page['list_url']) ?>">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
           <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
         </svg>
       </a>
-    <?php endif ?>
-  </div>
-<?php endif ?>
+    </div>
+  <?php endif ?>
+</form>
 
 <?php if (!empty($pages['list'])): ?>
-  <ul>
+  <ul class="d-flex flex-column gap-2">
     <?php foreach ($pages['list'] as $page): ?>
       <li>
-        <div class="d-flex gap-3">
+        <div class="d-flex flex-column">
           <a href="<?= url($page['url']) ?>">
             <?= e($page['title']) ?>
           </a>
@@ -71,7 +77,7 @@ $tag_list = generate_tag_list('/article');
 
   <?php if (!empty($pagination)): ?>
     <nav>
-      <ul class="pagination">
+      <ul class="pagination pagination-sm">
         <?php if ($pagination['prev']): ?>
           <li class="page-item">
             <a class="page-link" href="<?= url($pagination['prev']) ?>">&laquo; Prev</a>
