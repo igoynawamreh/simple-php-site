@@ -8,11 +8,12 @@ $is = [];
 
 $site['title'] = STATE['title'] ?? null;
 
-$page['route']   = $route;
-$page['url']     = '/' . trim($route, '/');
-$page['slug']    = basename($route) === '' ? null : basename($route);
-$page['title']   = $site['title'];
-$page['content'] = null;
+$page['route']       = $route;
+$page['route:last']  = basename($route) === '' ? null : basename($route);
+$page['url']         = '/' . trim($route, '/');
+$page['url:current'] = substr($_SERVER['REQUEST_URI'], strlen($base_url));
+$page['title']       = $site['title'];
+$page['content']     = null;
 
 foreach ($_GET as $key => $value) {
     $page['param:' . $key] = $value;
@@ -165,7 +166,9 @@ if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
         }
 
         $pid = substr($route, strlen($list_path_t) + 1);
-        if ($pid === '' || str_contains($pid, '/')) {
+        $page['route:id'] = $pid;
+
+        if ($isMarkdown && ($pid === '' || str_contains($pid, '/'))) {
             break;
         }
 
