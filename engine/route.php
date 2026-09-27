@@ -49,26 +49,45 @@ if ($route === '') {
  * Static pages
  */
 if (defined('STATIC_PAGES') && !empty(STATIC_PAGES)) {
-    $STATIC_PAGES_INDEXED = array_column(
-        array_map(function ($page) {
-            $page['url'] = trim($page['url'], '/');
-            return $page;
-        }, STATIC_PAGES),
-        null,
-        'url'
-    );
-    if (array_key_exists($route, $STATIC_PAGES_INDEXED)) {
-        $page['title'] = $STATIC_PAGES_INDEXED[$route]['title'] ?? $page['title'];
+    foreach (STATIC_PAGES as $static_page) {
+        $pattern = trim($static_page['url'] ?? '', '/');
+
+        // Build a regex from the URL pattern: literal segments are matched
+        // as-is, [name] segments become named capture groups.
+        $regexParts = [];
+        foreach (explode('/', $pattern) as $segment) {
+            if (preg_match('/^\[([a-zA-Z_][a-zA-Z0-9_]*)\]$/', $segment, $m)) {
+                $regexParts[] = '(?P<' . $m[1] . '>[^/]+)';
+            } else {
+                $regexParts[] = preg_quote($segment, '#');
+            }
+        }
+        $regex = '#^' . implode('/', $regexParts) . '$#';
+
+        if (!preg_match($regex, $route, $matches)) {
+            continue;
+        }
+
+        // Expose each named placeholder as $page['route:whatever'].
+        foreach ($matches as $key => $value) {
+            if (is_string($key)) {
+                $page['route:' . $key] = $value;
+            }
+        }
+
+        $page['title'] = $static_page['title'] ?? $page['title'];
         $is['static'] = true;
-        if (isset($STATIC_PAGES_INDEXED[$route]['content'])) {
-            $content_file = $STATIC_PAGES_INDEXED[$route]['content'];
+
+        if (isset($static_page['content'])) {
+            $content_file = $static_page['content'];
             if (is_file($content_file)) {
                 $render_md = render_md_from_file($content_file);
                 $page = array_merge($page, $render_md);
                 $is['markdown'] = true;
             }
         }
-        require $STATIC_PAGES_INDEXED[$route]['template'];
+
+        require $static_page['template'];
         exit;
     }
 }

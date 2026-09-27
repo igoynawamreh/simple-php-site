@@ -31,6 +31,16 @@ const STATIC_PAGES = [
         'template' => __DIR__ . '/app/about/about.html.php',
         'content'  => __DIR__ . '/app/about/about.md', // `content` is optional
     ],
+    [
+        'title'    => 'About Segment 1',
+        'url'      => '/about/[foo]',
+        'template' => __DIR__ . '/app/about/about-[foo].html.php',
+    ],
+    [
+        'title'    => 'About Segment 2',
+        'url'      => '/about/[foo]/[bar]',
+        'template' => __DIR__ . '/app/about/about-[foo]-[bar].html.php',
+    ],
 ];
 
 const DYNAMIC_PAGES = [
