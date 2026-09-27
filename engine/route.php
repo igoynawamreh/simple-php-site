@@ -11,8 +11,8 @@ $site['title'] = STATE['title'] ?? null;
 $page['route']   = $route;
 $page['url']     = '/' . trim($route, '/');
 $page['slug']    = basename($route) === '' ? null : basename($route);
-$page['title']   = $site['title']; // Default to site title
-$page['content'] = null; // Page with markdown content only
+$page['title']   = $site['title'];
+$page['content'] = null;
 
 $is['home']          = false;
 $is['static']        = false;
@@ -71,13 +71,13 @@ if (defined('STATIC_PAGES') && !empty(STATIC_PAGES)) {
 
 /**
  * Dynamic pages
- *   /{prefix}/       → list or index
- *   /{prefix}/{slug} → read/view page
+ *   /{list}/       → list or index page
+ *   /{list}/{slug} → item page
  */
 if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
-    foreach (DYNAMIC_PAGES as $prefix => $dynamic_page) {
+    foreach (DYNAMIC_PAGES as $list_path => $dynamic_page) {
         $views       = $dynamic_page['view'] ?? [];
-        $prefix_trim = trim($prefix, '/');
+        $list_path_n = trim($list_path, '/');
         $markdown    = null;
 
         $isMarkdown = isset($dynamic_page['content'])
@@ -85,31 +85,22 @@ if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
             && isset($dynamic_page['content']['dir'])
             && $dynamic_page['content']['dir'] !== false;
 
-        $page['index_url']   = '/' . $prefix_trim;
+        $page['list_url']   = '/' . $list_path_n;
         $page['title']       = $dynamic_page['title'] ?? $page['title'];
-        $page['index_title'] = $page['title'];
+        $page['list_title'] = $page['title'];
         $is['dynamic'] = true;
 
-        if ($route !== $prefix_trim && !str_starts_with($route, $prefix_trim . '/')) {
+        if ($route !== $list_path_n && !str_starts_with($route, $list_path_n . '/')) {
             continue;
         }
 
         if ($isMarkdown) {
-            require_once __DIR__ . '/lib/Markdown.php';
-            $markdown = new Markdown($dynamic_page['content']['dir']);
-            $markdown->getRenderer()->setVar('site_title', STATE['title'] ?? 'My Site');
-            $markdown->getRenderer()->setVar('home_url', $home_url);
-            $markdown->getRenderer()->setFunction('url', fn($path) => url($path));
-            $markdown->getRenderer()->setFunction('img', function ($path, $alt = '', $class = '') {
-                $src = url($path);
-                $classAttr = $class !== '' ? ' class="' . htmlspecialchars($class, ENT_QUOTES) . '"' : '';
-                return '<img src="' . htmlspecialchars($src, ENT_QUOTES) . '" alt="' . htmlspecialchars($alt, ENT_QUOTES) . '"' . $classAttr . '>';
-            });
+            $markdown = new Markdown($dynamic_page['content']['dir'], get_template_renderer());
             $is['markdown'] = true;
         }
 
-        // /{prefix}/ — list
-        if ($route === $prefix_trim) {
+        // /{list}/
+        if ($route === $list_path_n) {
             if (empty($views['list'])) {
                 break;
             }
@@ -124,7 +115,7 @@ if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
 
                 $pages = array_merge($pages, $markdown->getPages(
                     page: $page['param_page'],
-                    prefix: $prefix,
+                    path: $list_path,
                     perPage: $page['param_per_page'],
                     category: $page['param_category'],
                     tag: $page['param_tag'],
@@ -134,7 +125,7 @@ if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
                 $pagination = array_merge($pagination, renderPaginationLinks(
                     $pages['currentPage'],
                     $pages['totalPages'],
-                    baseUrl: '/' . $prefix_trim,
+                    baseUrl: '/' . $list_path_n,
                     extraParams: [
                         'category' => $page['param_category'],
                         'tag'      => $page['param_tag'],
@@ -145,16 +136,15 @@ if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
             exit;
         }
 
-        $pid = substr($route, strlen($prefix_trim) + 1);
+        $pid = substr($route, strlen($list_path_n) + 1);
         if ($pid === '' || str_contains($pid, '/')) {
             break;
         }
 
-        // /{prefix}/{slug} — read
+        // /{list}/{slug}
         if (empty($views['item'])) {
             break;
         }
-
         if ($isMarkdown) {
             $found = $markdown->getPage($pid);
             if (!$found) {
@@ -162,7 +152,6 @@ if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
             }
             $page = array_merge($page, $found);
         }
-
         $is['dynamic_item'] = true;
 
         require $views['item'];

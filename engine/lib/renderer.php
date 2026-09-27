@@ -70,3 +70,29 @@ class TemplateRenderer {
         return $args;
     }
 }
+
+/**
+ * Returns a configured TemplateRenderer instance with the site's
+ * whitelisted vars/functions registered. Built once per request
+ * (static cache) since the config never changes mid-request.
+ */
+function get_template_renderer(): TemplateRenderer {
+    global $home_url;
+
+    static $renderer = null;
+
+    if ($renderer === null) {
+        $renderer = new TemplateRenderer();
+
+        $renderer->setVar('site_title', STATE['title'] ?? 'My Site');
+        $renderer->setVar('home_url', $home_url);
+        $renderer->setFunction('url', fn($path) => url($path));
+        $renderer->setFunction('img', function ($path, $alt = '', $class = '') {
+            $src = url($path);
+            $classAttr = $class !== '' ? ' class="' . htmlspecialchars($class, ENT_QUOTES) . '"' : '';
+            return '<img src="' . htmlspecialchars($src, ENT_QUOTES) . '" alt="' . htmlspecialchars($alt, ENT_QUOTES) . '"' . $classAttr . '>';
+        });
+    }
+
+    return $renderer;
+}

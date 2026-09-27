@@ -2,17 +2,17 @@
 
 require_once __DIR__ . '/vendor/Parsedown.php';
 require_once __DIR__ . '/vendor/Spyc.php';
-require_once __DIR__ . '/TemplateRenderer.php';
+require_once __DIR__ . '/renderer.php';
 
 class Markdown {
     private string $contentDir;
     private Parsedown $parser;
     private TemplateRenderer $renderer;
 
-    public function __construct(string $contentDir) {
+    public function __construct(string $contentDir, ?TemplateRenderer $renderer = null) {
         $this->contentDir = rtrim($contentDir, '/');
         $this->parser = new Parsedown();
-        $this->renderer = new TemplateRenderer();
+        $this->renderer = $renderer ?? new TemplateRenderer();
     }
 
     private function filenameToSlug(string $filename): string {
@@ -61,7 +61,7 @@ class Markdown {
         return $this->renderer;
     }
 
-    public function getAllPagesMeta(string $prefix = ''): array {
+    public function getAllPagesMeta(string $path = ''): array {
         $files       = glob($this->contentDir . '/*.md');
         $cacheFile   = $this->getCacheFile();
         $newestMtime = $this->getNewestMtime($files);
@@ -92,7 +92,7 @@ class Markdown {
             // frontmatter accidentally defines a field with the same name.
             $pages[] = array_merge($meta, [
                 'slug'  => $slug,
-                'url'   => '/' . trim($prefix, '/') . '/' . $slug,
+                'url'   => '/' . trim($path, '/') . '/' . $slug,
                 'title' => $meta['title'] ?? $slug,
                 'date'  => $meta['date'] ?? null,
             ]);
@@ -100,12 +100,12 @@ class Markdown {
 
         usort($pages, fn($a, $b) => strtotime($b['date'] ?? '1970-01-01') <=> strtotime($a['date'] ?? '1970-01-01'));
 
-        $title = DYNAMIC_PAGES[$prefix]['title'] ?? null;
+        $title = DYNAMIC_PAGES[$path]['title'] ?? null;
         file_put_contents(
             $cacheFile,
             '<?php return ' . var_export([
                 'title'        => $title,
-                'url'          => '/' . trim($prefix, '/'),
+                'url'          => '/' . trim($path, '/'),
                 'pages'        => $pages,
                 'newest_mtime' => $newestMtime,
                 'file_count'   => count($files),
@@ -151,14 +151,14 @@ class Markdown {
      */
     public function getPages(
         int $page = 1,
-        string $prefix = '',
+        string $path = '',
         int $perPage = 10,
         ?string $category = null,
         ?string $tag = null,
         string $orderBy = 'title',
         ?string $orderDir = null
     ): array {
-        $allPages = $this->getAllPagesMeta($prefix);
+        $allPages = $this->getAllPagesMeta($path);
 
         // Filter by category (exact match)
         if ($category !== null && $category !== '') {
@@ -181,7 +181,7 @@ class Markdown {
         // fields (e.g. 'author', 'priority').
         $orderDir = $orderDir ?? ($orderBy === 'date' ? 'desc' : 'asc');
 
-        $getSortValue = fn($p) => $p[$orderBy] ?? $p[$orderBy] ?? null;
+        $getSortValue = fn($p) => $p[$orderBy] ?? null;
 
         usort($allPages, function ($a, $b) use ($getSortValue, $orderBy, $orderDir) {
             $va = $getSortValue($a);
@@ -221,6 +221,8 @@ class Markdown {
  * $baseUrl example: '/article' -> result '/article?page=2'
  */
 function renderPaginationLinks(int $currentPage, int $totalPages, string $baseUrl = '', array $extraParams = [], int $window = 2): array {
+    $baseUrl = '/' . trim($baseUrl, '/');
+
     $urlFor = function (int $p) use ($baseUrl, $extraParams) {
         $params = array_filter(array_merge($extraParams, ['page' => $p]), fn($v) => $v !== null && $v !== '');
         return $baseUrl . '?' . http_build_query($params);

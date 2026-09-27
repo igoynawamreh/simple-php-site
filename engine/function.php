@@ -2,10 +2,18 @@
 
 require_once __DIR__ . '/lib/vendor/Parsedown.php';
 require_once __DIR__ . '/lib/vendor/Spyc.php';
-require_once __DIR__ . '/lib/Markdown.php';
-require_once __DIR__ . '/lib/TemplateRenderer.php';
 
-// [E]scape HTML [at]tribute’s value
+require_once __DIR__ . '/lib/renderer.php';
+require_once __DIR__ . '/lib/markdown.php';
+
+require_once __DIR__ . '/lib/typecast.php';
+require_once __DIR__ . '/lib/sanitizer.php';
+require_once __DIR__ . '/lib/validator.php';
+require_once __DIR__ . '/lib/response.php';
+
+/**
+ * [E]scape HTML [at]tribute’s value
+ */
 function e(?string $value): string {
     return htmlspecialchars($value ?? '', ENT_HTML5 | ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
@@ -28,7 +36,7 @@ function url(string $route = ''): string {
  * using a PHP date() format string. Returns '' if $value is empty/null
  * or can't be parsed.
  */
-function formatDate(?string $value, string $format = 'Y-m-d'): string {
+function format_date(?string $value, string $format = 'Y-m-d'): string {
     if ($value === null || trim($value) === '') {
         return '';
     }
@@ -258,32 +266,6 @@ function generate_tag_list(string $path): array {
 }
 
 /**
- * Returns a configured TemplateRenderer instance with the site's
- * whitelisted vars/functions registered. Built once per request
- * (static cache) since the config never changes mid-request.
- */
-function get_template_renderer(): TemplateRenderer {
-    global $home_url;
-
-    static $renderer = null;
-
-    if ($renderer === null) {
-        $renderer = new TemplateRenderer();
-
-        $renderer->setVar('site_title', STATE['title'] ?? 'My Site');
-        $renderer->setVar('home_url', $home_url);
-        $renderer->setFunction('url', fn($path) => url($path));
-        $renderer->setFunction('img', function ($path, $alt = '', $class = '') {
-            $src = url($path);
-            $classAttr = $class !== '' ? ' class="' . htmlspecialchars($class, ENT_QUOTES) . '"' : '';
-            return '<img src="' . htmlspecialchars($src, ENT_QUOTES) . '" alt="' . htmlspecialchars($alt, ENT_QUOTES) . '"' . $classAttr . '>';
-        });
-    }
-
-    return $renderer;
-}
-
-/**
  * Read a markdown file, split its YAML frontmatter from the body, resolve
  * {{ ... }} template placeholders in the body, then parse it to HTML.
  * Returns an array of all frontmatter fields plus 'content' (rendered HTML).
@@ -299,7 +281,7 @@ function render_md_from_file(string $file_path): array {
     $raw = file_get_contents($file_path);
     [$meta, $body] = $markdown->parseFrontmatter($raw);
 
-    $body = get_template_renderer()->render($body); // resolve {{ ... }} dulu
+    $body = get_template_renderer()->render($body);
 
     $parsedown = new Parsedown();
 

@@ -20,7 +20,7 @@ $article_list = generate_list(
           <a href="<?= url($article['url']) ?>">
             <?= e($article['title']) ?>
           </a>
-          <span><?= formatDate($article['date'], 'd M Y') ?></span>
+          <span><?= format_date($article['date'], 'd M Y') ?></span>
         </div>
       </li>
     <?php endforeach ?>

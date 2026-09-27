@@ -61,7 +61,7 @@ $tag_list = generate_tag_list('/article');
           <a href="<?= url($page['url']) ?>">
             <?= e($page['title']) ?>
           </a>
-          <span><?= formatDate($page['date'], 'd M Y') ?></span>
+          <span><?= format_date($page['date'], 'd M Y') ?></span>
         </div>
       </li>
     <?php endforeach ?>
