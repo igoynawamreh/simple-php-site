@@ -20,6 +20,7 @@ if (defined('STATE') && array_key_exists('debug', STATE)) {
 }
 
 // Normalize `$_GET`, `$_POST`, `$_REQUEST` value(s)
+require_once __DIR__ . '/lib/typecast.php';
 $method = [&$_GET, &$_POST, &$_REQUEST];
 array_walk_recursive($method, static function (&$v) {
     $v = clean_value($v);

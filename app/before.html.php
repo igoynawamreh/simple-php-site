@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= e($page['title']) ?> — <?= e($site['title']) ?></title>
   <link rel="stylesheet" href="<?= url('/app/asset/bootstrap/css/bootstrap.min.css') ?>">
-  <link rel="stylesheet" href="<?= url('/app/asset/bootstrap-icons/bootstrap-icons.min.css') ?>">
   <link rel="stylesheet" href="<?= url('/app/asset/style.css') ?>">
 </head>
 <body>
