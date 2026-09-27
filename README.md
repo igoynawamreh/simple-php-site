@@ -1,5 +1,7 @@
 # Simple PHP Site
 
+Named *Simple PHP Site* because, out of the box, it only provides the basics — routing, templating, variables, and functions — just enough to build a website. But you're free to write your own code on top of it, whether that means a larger web application backed by SQLite, MySQL, PostgreSQL, or anything else built to handle bigger data.
+
 Not much to document here. The setup is simple — just download or clone it, run the examples, and you'll get it.
 
 Everything you'll need is inside `app`. Everything else — routing, templates, content sources — is defined in `config.php`.
