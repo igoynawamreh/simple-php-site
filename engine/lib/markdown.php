@@ -100,12 +100,16 @@ class Markdown {
             $a = $a['date'] ?? '1970-01-01';
             $b = $b['date'] ?? '1970-01-01';
             if ($a instanceof DateTimeInterface) {
-                $a = $a->format('c');
+                $a = $a->getTimestamp();
+            } else if (is_string($a)) {
+                $a = strtotime($a);
             }
             if ($b instanceof DateTimeInterface) {
-                $b = $b->format('c');
+                $b = $b->getTimestamp();
+            } else if (is_string($b)) {
+                $b = strtotime($b);
             }
-            return strtotime($b) <=> strtotime($a);
+            return $b <=> $a;
         });
 
         $title = DYNAMIC_PAGES[$path]['title'] ?? null;
