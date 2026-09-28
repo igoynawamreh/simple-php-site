@@ -89,6 +89,7 @@ class Markdown {
             // to the computed values — merge them LAST so they win even if the
             // frontmatter accidentally defines a field with the same name.
             $pages[] = array_merge($meta, [
+                'file'  => $file,
                 'slug'  => $slug,
                 'url'   => '/' . trim($path, '/') . '/' . $slug,
                 'title' => $meta['title'] ?? $slug,
@@ -116,6 +117,7 @@ class Markdown {
         file_put_contents(
             $cacheFile,
             '<?php return ' . var_export([
+                'file'         => $file,
                 'title'        => $title,
                 'url'          => '/' . trim($path, '/'),
                 'pages'        => $pages,
@@ -202,6 +204,27 @@ class Markdown {
                         if (stripos($title, $word) !== false) {
                             $score++;
                         }
+                    }
+
+                    // Search in body
+                    $separatorCount = 0;
+                    if ($stream = fopen($p['file'], 'r')) {
+                        while (($line = fgets($stream)) !== false) {
+                            if (trim($line) === '---') {
+                                $separatorCount++;
+                                continue;
+                            }
+                            // Start the search after second `---`
+                            if ($separatorCount >= 2) {
+                                foreach ($searchWords as $word) {
+                                    if (stripos($line, $word) !== false) {
+                                        $score++;
+                                    }
+                                }
+                            }
+                        }
+                        // Close the file stream pointer
+                        fclose($stream);
                     }
 
                     $p['_searchScore'] = $score;
