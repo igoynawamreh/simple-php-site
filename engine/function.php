@@ -135,9 +135,11 @@ function generate_list(
     }
 
     if ($tag !== null && $tag !== '') {
+        $tag = "\x1a" . $tag . "\x1a";
+        $tags = "\x1a" . implode("\x1a", (array) ($p['tags'] ?? [])) . "\x1a";
         $pages = array_values(array_filter(
             $pages,
-            fn($p) => in_array($tag, $p['tags'] ?? [], true)
+            fn($p) => strpos($tags, $tag) !== false
         ));
     }
 
