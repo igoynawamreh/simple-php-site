@@ -23,6 +23,9 @@ class TemplateRenderer {
     }
 
     public function render(string $content): string {
+        if (strpos($content, '{{') === false) {
+            return $content;
+        }
         return preg_replace_callback(
             '/\{\{\s*(.+?)\s*\}\}/',
             fn($m) => $this->resolve(trim($m[1])),
