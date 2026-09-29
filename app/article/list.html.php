@@ -25,8 +25,7 @@ $tags = generate_field_list('/article', 'tags');
       <ul class="dropdown-menu">
         <?php foreach ($categories['list'] as $category): ?>
           <li>
-            <a class="dropdown-item<?= $category['active'] ? ' active' : '' ?>"
-              href="<?= url(merge_query_url($category['route'])) ?>">
+            <a class="dropdown-item<?= $category['active'] ? ' active' : '' ?>" href="<?= url(merge_query_url($category['route'])) ?>">
               <?= e($category['title']) ?>
             </a>
           </li>
@@ -35,7 +34,7 @@ $tags = generate_field_list('/article', 'tags');
     </div>
   <?php endif ?>
 
-  <?php if (!empty($tags['list'])): ?>
+  <?php if (!empty($tags)): ?>
     <div class="col-auto dropdown">
       <?php foreach ($tags['selected'] as $value): ?>
         <input type="hidden" name="tags[]" value="<?= e($value) ?>">
