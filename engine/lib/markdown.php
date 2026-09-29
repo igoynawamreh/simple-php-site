@@ -104,7 +104,7 @@ class Markdown {
             $slug = $this->filenameToSlug($file);
 
             // Flatten frontmatter fields to the top level (category, tags, etc.
-            // come straight from $meta), but always force slug/url/title/date
+            // come straight from $meta), but always force route/slug/title/date
             // to the computed values — merge them LAST so they win even if the
             // frontmatter accidentally defines a field with the same name.
             $pages[] = array_merge($meta, [
@@ -152,7 +152,7 @@ class Markdown {
 
     /**
      * Get a single page (frontmatter + markdown parsed to HTML).
-     * Template placeholders like {{ home_url }} and {{ url('...') }} inside
+     * Template placeholders like {{ site_url }} and {{ url('...') }} inside
      * the body are resolved BEFORE the body is parsed by @taufik-nurrohman/markdown.
      * Returns null if the file doesn't exist.
      */

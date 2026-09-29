@@ -7,6 +7,7 @@ $pagination = [];
 $is = [];
 
 $site['title'] = STATE['title'] ?? null;
+$site['url']   = $home_url;
 
 $page['route']       = $route;
 $page['route:last']  = basename($route) === '' ? null : basename($route);
