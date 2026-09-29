@@ -57,6 +57,10 @@ function format_date(DateTimeInterface|null|string $value, string $format = 'Y-m
  * Merge a target URL's query params with the CURRENT request's query
  * params ($_GET) — the target URL's own params win on key collisions,
  * everything else from the current URL is preserved.
+ *
+ * When the target URL changes a filter/sort param without specifying
+ * 'page' itself, 'page' is reset to the first page — the current page
+ * number usually no longer makes sense once the result set changes.
  */
 function merge_query_url(string $url): string {
     $parsed = parse_url($url);
@@ -70,7 +74,49 @@ function merge_query_url(string $url): string {
     // Current URL's params, then overlay with the new ones (new wins on conflict)
     $merged = array_merge($_GET, $newParams);
 
+    // Reset to page 1 whenever a filter/sort change is being applied,
+    // unless the target URL explicitly sets its own 'page' value.
+    if (!array_key_exists('page', $newParams)) {
+        unset($merged['page']);
+    }
+
     $query = http_build_query($merged);
+
+    return $path . ($query !== '' ? '?' . $query : '');
+}
+
+/**
+ * Toggle a single value inside a multi-value query parameter
+ * (e.g. ?tags[]=foo&tags[]=bar), based on the CURRENT request's query
+ * params ($_GET). If the value is already selected, it's removed; if
+ * not, it's added. The field is removed entirely from the query string
+ * once its selection becomes empty. Also resets 'page' back to 1, since
+ * changing a filter usually invalidates the current page number.
+ */
+function toggle_query_value(string $url, string $field, string $value): string {
+    $parsed = parse_url($url);
+    $path   = $parsed['path'] ?? '';
+
+    $params = $_GET;
+
+    $selected = array_values(array_filter(
+        (array) ($params[$field] ?? []),
+        fn($v) => $v !== null && $v !== ''
+    ));
+
+    $selected = in_array($value, $selected, true)
+        ? array_values(array_diff($selected, [$value]))
+        : array_values(array_unique(array_merge($selected, [$value])));
+
+    if (empty($selected)) {
+        unset($params[$field]);
+    } else {
+        $params[$field] = $selected;
+    }
+
+    unset($params['page']);
+
+    $query = http_build_query($params);
 
     return $path . ($query !== '' ? '?' . $query : '');
 }
@@ -246,9 +292,13 @@ function generate_field_list(string $route, string $field, ?string $param = null
 
     $base = '/' . trim($route, '/');
 
-    // The URL value may be a string (?tags=php) or an array (?tags[]=php&tags[]=js).
-    $selected = $_GET[$param] ?? null;
-    $selectedValues = $selected === null ? [] : array_map('strval', (array) $selected);
+    // Normalized, deduped list of currently selected values from the URL.
+    // Always an array, whether the URL sent one value (?category=news) or
+    // several (?tags[]=php&tags[]=js) — keeps this predictable for callers.
+    $selected = array_values(array_filter(
+        array_map('strval', (array) ($_GET[$param] ?? [])),
+        fn($v) => $v !== ''
+    ));
 
     return [
         'selected' => $selected,
@@ -256,7 +306,7 @@ function generate_field_list(string $route, string $field, ?string $param = null
             fn($title) => [
                 'title'  => $title,
                 'route'  => $base . '?' . http_build_query([$param => $title]),
-                'active' => in_array($title, $selectedValues, true),
+                'active' => in_array($title, $selected, true),
             ],
             $titles
         ),

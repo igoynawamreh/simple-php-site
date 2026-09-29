@@ -128,7 +128,7 @@ if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
             }
 
             // Fields that may be used as filters (per page config, with a default)
-            $allowedFilters = $dynamic_page['content']['filters'] ?? ['category', 'tags'];
+            $allowedFilters = $dynamic_page['content']['filter'] ?? ['category', 'tags'];
 
             // Only whitelisted fields from the URL become filters
             $filters = array_intersect_key($_GET, array_flip($allowedFilters));

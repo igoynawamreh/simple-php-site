@@ -53,6 +53,8 @@ const DYNAMIC_PAGES = [
             'per_page'  => 5,
             'order_by'  => 'title',
             'order_dir' => 'asc',
+            // Allowed filters
+            'filter'    => ['category', 'tags'],
         ],
         'template' => [
             'list' => __DIR__ . '/app/article/list.html.php',

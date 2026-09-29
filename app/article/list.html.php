@@ -16,14 +16,17 @@ $tags = generate_field_list('/article', 'tags');
 
   <?php if (!empty($categories)): ?>
     <div class="col-auto dropdown">
-      <input type="hidden" name="category" value="<?= e($page['param:category']) ?>">
+      <input type="hidden" name="category" value="<?= e($categories['selected'][0] ?? null) ?>">
+
       <button class="btn btn-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
-        Category<?= $page['param:category'] ? ': ' . $page['param:category'] : '' ?>
+        Category<?= $categories['selected'][0] ?? null ? ': ' . $categories['selected'][0] : '' ?>
       </button>
+
       <ul class="dropdown-menu">
         <?php foreach ($categories['list'] as $category): ?>
           <li>
-            <a class="dropdown-item<?= $category['active'] ? ' active' : '' ?>" href="<?= url(merge_query_url($category['route'])) ?>">
+            <a class="dropdown-item<?= $category['active'] ? ' active' : '' ?>"
+              href="<?= url(merge_query_url($category['route'])) ?>">
               <?= e($category['title']) ?>
             </a>
           </li>
@@ -32,16 +35,20 @@ $tags = generate_field_list('/article', 'tags');
     </div>
   <?php endif ?>
 
-  <?php if (!empty($tags)): ?>
+  <?php if (!empty($tags['list'])): ?>
     <div class="col-auto dropdown">
-      <input type="hidden" name="tags" value="<?= e($page['param:tags']) ?>">
+      <?php foreach ($tags['selected'] as $value): ?>
+        <input type="hidden" name="tags[]" value="<?= e($value) ?>">
+      <?php endforeach; ?>
+
       <button class="btn btn-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
-        Tags<?= $page['param:tags'] ? ': ' . $page['param:tags'] : '' ?>
+        Tags<?= $tags['selected'] ? ': ' . e(implode(', ', $tags['selected'])) : '' ?>
       </button>
+
       <ul class="dropdown-menu">
         <?php foreach ($tags['list'] as $tag): ?>
           <li>
-            <a class="dropdown-item<?= $tag['active'] ? ' active' : '' ?>" href="<?= url(merge_query_url($tag['route'])) ?>">
+            <a class="dropdown-item<?= $tag['active'] ? ' active' : '' ?>" href="<?= url(toggle_query_value($tag['route'], 'tags', $tag['title'])) ?>">
               <?= e($tag['title']) ?>
             </a>
           </li>
@@ -54,7 +61,7 @@ $tags = generate_field_list('/article', 'tags');
     <div class="col-auto d-flex align-items-center">
       <a class="btn btn-light btn-sm lh-1 d-inline-flex align-items-center justify-content-center" href="<?= url($page['route:list']) ?>">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-          <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
+          <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708" />
         </svg>
       </a>
     </div>
