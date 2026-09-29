@@ -89,6 +89,7 @@ class Markdown {
             // to the computed values — merge them LAST so they win even if the
             // frontmatter accidentally defines a field with the same name.
             $pages[] = array_merge($meta, [
+                'file'  => $file,
                 'slug'  => $slug,
                 'url'   => '/' . trim($path, '/') . '/' . $slug,
                 'title' => $meta['title'] ?? $slug,
@@ -100,18 +101,23 @@ class Markdown {
             $a = $a['date'] ?? '1970-01-01';
             $b = $b['date'] ?? '1970-01-01';
             if ($a instanceof DateTimeInterface) {
-                $a = $a->format('c');
+                $a = $a->getTimestamp();
+            } else if (is_string($a)) {
+                $a = strtotime($a);
             }
             if ($b instanceof DateTimeInterface) {
-                $b = $b->format('c');
+                $b = $b->getTimestamp();
+            } else if (is_string($b)) {
+                $b = strtotime($b);
             }
-            return strtotime($b) <=> strtotime($a);
+            return $b <=> $a;
         });
 
         $title = DYNAMIC_PAGES[$path]['title'] ?? null;
         file_put_contents(
             $cacheFile,
             '<?php return ' . var_export([
+                'file'         => $file,
                 'title'        => $title,
                 'url'          => '/' . trim($path, '/'),
                 'pages'        => $pages,
@@ -198,6 +204,27 @@ class Markdown {
                         if (stripos($title, $word) !== false) {
                             $score++;
                         }
+                    }
+
+                    // Search in body
+                    $separatorCount = 0;
+                    if ($stream = fopen($p['file'], 'r')) {
+                        while (($line = fgets($stream)) !== false) {
+                            if (trim($line) === '---') {
+                                $separatorCount++;
+                                continue;
+                            }
+                            // Start the search after second `---`
+                            if ($separatorCount >= 2) {
+                                foreach ($searchWords as $word) {
+                                    if (stripos($line, $word) !== false) {
+                                        $score++;
+                                    }
+                                }
+                            }
+                        }
+                        // Close the file stream pointer
+                        fclose($stream);
                     }
 
                     $p['_searchScore'] = $score;

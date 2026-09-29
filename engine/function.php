@@ -44,7 +44,7 @@ function format_date(DateTimeInterface|null|string $value, string $format = 'Y-m
         return '';
     }
 
-    $timestamp = strtotime($value instanceof DateTimeInterface ? $value->format('c') : $value);
+    $timestamp = $value instanceof DateTimeInterface ? $value->getTimestamp() : strtotime($value);
 
     if ($timestamp === false) {
         return '';
