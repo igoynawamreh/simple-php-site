@@ -38,6 +38,25 @@ class Markdown {
     }
 
     /**
+     * Convert an absolute path to a path relative to the project root
+     * project folder name
+     * (e.g. /var/www/simple-php-site/foo/bar/content
+     *       -> foo/bar/content).
+     */
+    private function toRelativePath(string $absPath): string {
+        // This file lives in <project>/engine/lib/, so the project root is two levels up.
+        $root    = rtrim(str_replace('\\', '/', dirname(__DIR__, 2)), '/');
+        $absPath = str_replace('\\', '/', $absPath);
+
+        // Outside the project root: leave it untouched
+        if (strpos($absPath, $root . '/') !== 0) {
+            return $absPath;
+        }
+
+        return ltrim(substr($absPath, strlen($root)), '/');
+    }
+
+    /**
      * Split frontmatter (real YAML, parsed via @taufik-nurrohman/y-a-m-l) from the markdown body.
      * Supports nested values, lists, quoted strings, etc. — not just flat key: value.
      * Returns [meta_array, body_string]
@@ -59,7 +78,7 @@ class Markdown {
         return $this->renderer;
     }
 
-    public function getAllPagesMeta(string $path = ''): array {
+    public function getAllPagesMeta(string $route = ''): array {
         $files       = glob($this->contentDir . '/*.md');
         $cacheFile   = $this->getCacheFile();
         $newestMtime = $this->getNewestMtime($files);
@@ -89,11 +108,11 @@ class Markdown {
             // to the computed values — merge them LAST so they win even if the
             // frontmatter accidentally defines a field with the same name.
             $pages[] = array_merge($meta, [
-                'file'  => $file,
+                'route' => '/' . trim($route, '/') . '/' . $slug,
                 'slug'  => $slug,
-                'url'   => '/' . trim($path, '/') . '/' . $slug,
                 'title' => $meta['title'] ?? $slug,
                 'date'  => $meta['date'] ?? null,
+                '_file' => $file,
             ]);
         }
 
@@ -113,16 +132,17 @@ class Markdown {
             return $b <=> $a;
         });
 
-        $title = DYNAMIC_PAGES[$path]['title'] ?? null;
+        $title = DYNAMIC_PAGES[$route]['title'] ?? null;
         file_put_contents(
             $cacheFile,
             '<?php return ' . var_export([
-                'file'         => $file,
-                'title'        => $title,
-                'url'          => '/' . trim($path, '/'),
-                'pages'        => $pages,
-                'newest_mtime' => $newestMtime,
-                'file_count'   => count($files),
+                'title'         => $title,
+                'route'         => '/' . trim($route, '/'),
+                'pages'         => $pages,
+                'newest_mtime'  => $newestMtime,
+                'file_count'    => count($files),
+                '_content_path' => $this->contentDir,
+                '_cache_file'   => $cacheFile,
             ], true) . ';',
             LOCK_EX
         );
@@ -136,7 +156,7 @@ class Markdown {
      * the body are resolved BEFORE the body is parsed by @taufik-nurrohman/markdown.
      * Returns null if the file doesn't exist.
      */
-    public function getPage(string $slug): ?array {
+    public function getPage(string $route, string $slug): ?array {
         $slug = $this->filenameToSlug(basename($slug));
         $path = $this->contentDir . '/' . $slug . '.md';
 
@@ -150,10 +170,12 @@ class Markdown {
         $body = $this->renderer->render($body);
 
         return array_merge($meta, [
+            'route'   => '/' . trim($route, '/') . '/' . $slug,
             'slug'    => $slug,
             'title'   => $meta['title'] ?? $slug,
             'date'    => $meta['date'] ?? null,
             'content' => x\markdown\from($body), // markdown -> HTML
+            '_file'   => $path,
         ]);
     }
 
@@ -165,67 +187,73 @@ class Markdown {
      */
     public function getPages(
         int $page = 1,
-        string $path = '',
+        string $route = '',
         int $perPage = 10,
-        ?string $category = null,
-        ?string $tag = null,
+        array $filters = [],
         ?string $search = null,
         string $orderBy = 'title',
         ?string $orderDir = null
     ): array {
-        $allPages = $this->getAllPagesMeta($path);
+        $allPages = $this->getAllPagesMeta($route);
 
-        // Filter by category (exact match)
-        if ($category !== null && $category !== '') {
-            $allPages = array_values(array_filter(
-                $allPages,
-                fn($p) => ($p['category'] ?? null) === $category
-            ));
-        }
+        // Filter by any metadata field (see filter_pages_by_fields())
+        $allPages = filter_pages_by_fields($allPages, $filters);
 
-        // Filter by tag (tags is a YAML list -> PHP array via @taufik-nurrohman/y-a-m-l)
-        if ($tag !== null && $tag !== '') {
-            $allPages = array_values(array_filter(
-                $allPages,
-                fn($p) => in_array($tag, $p['tags'] ?? [], true)
-            ));
-        }
-
-        // Filter + scoring by title
+        // Filter + scoring by title and body
         if ($search !== null && $search !== '') {
             $searchWords = preg_split('/\s+/', trim($search));
 
+            // Title matches are weighted higher than body matches, so a keyword
+            // in the title always outranks the same keyword only appearing in the body.
+            $titleWeight = 10;
+            $bodyWeight  = 1;
+
             $allPages = array_values(array_filter(array_map(
-                function ($p) use ($searchWords) {
+                function ($p) use ($searchWords, $titleWeight, $bodyWeight) {
                     $title = $p['title'] ?? '';
                     $score = 0;
 
+                    // Title: each search word found counts once, regardless of
+                    // how many times it repeats in the title.
                     foreach ($searchWords as $word) {
                         if (stripos($title, $word) !== false) {
-                            $score++;
+                            $score += $titleWeight;
                         }
                     }
 
-                    // Search in body
-                    $separatorCount = 0;
-                    if ($stream = fopen($p['file'], 'r')) {
+                    // Body: each search word found counts once across the whole
+                    // body, so a long article repeating one word doesn't outweigh
+                    // pages that match more distinct words.
+                    $matchedInBody = array_fill_keys($searchWords, false);
+
+                    if (!empty($p['_file']) && ($stream = fopen($p['_file'], 'r'))) {
+                        $separatorCount = 0;
+
                         while (($line = fgets($stream)) !== false) {
                             if (trim($line) === '---') {
                                 $separatorCount++;
                                 continue;
                             }
-                            // Start the search after second `---`
+
+                            // Start the search after the second `---`
                             if ($separatorCount >= 2) {
-                                foreach ($searchWords as $word) {
-                                    if (stripos($line, $word) !== false) {
-                                        $score++;
+                                foreach ($matchedInBody as $word => $found) {
+                                    if (!$found && stripos($line, $word) !== false) {
+                                        $matchedInBody[$word] = true;
                                     }
+                                }
+
+                                // Stop reading early once every word has been found
+                                if (!in_array(false, $matchedInBody, true)) {
+                                    break;
                                 }
                             }
                         }
-                        // Close the file stream pointer
+
                         fclose($stream);
                     }
+
+                    $score += count(array_filter($matchedInBody)) * $bodyWeight;
 
                     $p['_searchScore'] = $score;
                     return $p;
@@ -240,6 +268,7 @@ class Markdown {
         $getSortValue = fn($p) => $p[$orderBy] ?? null;
 
         usort($allPages, function ($a, $b) use ($getSortValue, $orderBy, $orderDir, $search) {
+            // When searching, the highest score comes first
             if ($search !== null && $search !== '') {
                 $scoreCmp = ($b['_searchScore'] ?? 0) <=> ($a['_searchScore'] ?? 0);
                 if ($scoreCmp !== 0) {
@@ -247,6 +276,7 @@ class Markdown {
                 }
             }
 
+            // Same score (or no search) -> fall back to the requested order
             $va = $getSortValue($a);
             $vb = $getSortValue($b);
 
@@ -261,6 +291,7 @@ class Markdown {
             return $orderDir === 'desc' ? -$cmp : $cmp;
         });
 
+        // Pagination
         $total      = count($allPages);
         $totalPages = max(1, (int) ceil($total / $perPage));
 
@@ -275,6 +306,30 @@ class Markdown {
             'last_page'    => $totalPages,
         ];
     }
+}
+
+/**
+ * Read a markdown file, split its YAML frontmatter from the body, resolve
+ * {{ ... }} template placeholders in the body, then parse it to HTML.
+ * Returns an array of all frontmatter fields plus 'content' (rendered HTML).
+ * Returns an empty array if the file doesn't exist.
+ */
+function render_md_from_file(string $file): array {
+    if (!file_exists($file)) {
+        return [];
+    }
+
+    $markdown = new Markdown(dirname($file));
+
+    $raw = file_get_contents($file);
+    [$meta, $body] = $markdown->parseFrontmatter($raw);
+
+    $body = get_template_renderer()->render($body);
+
+    return array_merge($meta, [
+        'content' => x\markdown\from($body),
+        '_file'   => $file,
+    ]);
 }
 
 /**
@@ -299,10 +354,10 @@ function renderPaginationLinks(int $currentPage, int $totalPages, string $baseUr
         $isNearBy = $i >= $currentPage - $window && $i <= $currentPage + $window;
 
         if ($isEdge || $isNearBy) {
-            $pages[] = ['page' => $i, 'url' => $urlFor($i), 'active' => $i === $currentPage];
+            $pages[] = ['page' => $i, 'route' => $urlFor($i), 'active' => $i === $currentPage];
             $lastAdded = $i;
         } elseif ($lastAdded !== -1 && $i - $lastAdded > 1) {
-            $pages[] = ['page' => '...', 'url' => null, 'active' => false];
+            $pages[] = ['page' => '...', 'route' => null, 'active' => false];
             $lastAdded = -1;
         }
     }

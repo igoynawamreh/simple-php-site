@@ -6,7 +6,7 @@ Not much to document here. The setup is simple — just download or clone it, ru
 
 Everything you'll need is inside `app`. Everything else — routing, templates, content sources — is defined in `config.php`.
 
-`app` is just a folder name, not a rule. Rename it, copy it, run several side by side if you need to. Each one gets its own entry in `config.php`, where you tell it what URLs it handles, which templates to use, and where its content comes from.
+`app` is just a folder name, not a rule. Rename it, copy it, or run several side by side. Your files don't even have to live in a folder like `app`: put them in the project root or organize them however you like. The only requirement is that each one is defined in `config.php`, where you tell it what URLs it handles, which templates to use, and where its content comes from.
 
 For the exact list of what's available inside a page — variables, functions — check the source directly: `engine/variable.php`, `engine/route.php`, and `engine/function.php`.
 

@@ -10,8 +10,7 @@ $site['title'] = STATE['title'] ?? null;
 
 $page['route']       = $route;
 $page['route:last']  = basename($route) === '' ? null : basename($route);
-$page['url']         = '/' . trim($route, '/');
-$page['url:current'] = substr($_SERVER['REQUEST_URI'], strlen($base_url));
+$page['route:query'] = substr($_SERVER['REQUEST_URI'], strlen($base_url));
 $page['title']       = $site['title'];
 $page['content']     = null;
 
@@ -51,7 +50,7 @@ if ($route === '') {
  */
 if (defined('STATIC_PAGES') && !empty(STATIC_PAGES)) {
     foreach (STATIC_PAGES as $static_page) {
-        $pattern = trim($static_page['url'] ?? '', '/');
+        $pattern = trim($static_page['route'] ?? '', '/');
 
         // Build a regex from the URL pattern: literal segments are matched
         // as-is, [name] segments become named capture groups.
@@ -99,19 +98,20 @@ if (defined('STATIC_PAGES') && !empty(STATIC_PAGES)) {
  *   /{list}/{slug} → item page
  */
 if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
-    foreach (DYNAMIC_PAGES as $list_path => $dynamic_page) {
-        $views       = $dynamic_page['view'] ?? [];
-        $list_path_t = trim($list_path, '/');
-        $markdown    = null;
+    foreach (DYNAMIC_PAGES as $list_route => $dynamic_page) {
+        $template     = $dynamic_page['template'] ?? [];
+        $list_route_t = trim($list_route, '/');
+        $markdown     = null;
 
         $isMarkdown = isset($dynamic_page['content']['dir']);
 
-        $page['url:list']   = '/' . $list_path_t;
+        $page['route:list'] = '/' . $list_route_t;
         $page['title']      = $dynamic_page['title'] ?? $page['title'];
         $page['title:list'] = $page['title'];
+
         $is['dynamic'] = true;
 
-        if ($route !== $list_path_t && !str_starts_with($route, $list_path_t . '/')) {
+        if ($route !== $list_route_t && !str_starts_with($route, $list_route_t . '/')) {
             continue;
         }
 
@@ -121,18 +121,26 @@ if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
         }
 
         // /{list}/
-        if ($route === $list_path_t) {
-            if (empty($views['list'])) {
+        if ($route === $list_route_t) {
+            if (empty($template['list'])) {
                 break;
             }
 
+            // Fields that may be used as filters (per page config, with a default)
+            $allowedFilters = $dynamic_page['content']['filters'] ?? ['category', 'tags'];
+
+            // Only whitelisted fields from the URL become filters
+            $filters = array_intersect_key($_GET, array_flip($allowedFilters));
+
             $page = array_merge($page, [
                 'param:page'      => isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1,
-                'param:per_page'  => $_GET['per_page'] ?? $dynamic_page['content']['per_page'] ?? 10,
+                'param:per_page'  => max(1, (int) ($_GET['per_page'] ?? $dynamic_page['content']['per_page'] ?? 10)),
                 'param:order_by'  => $_GET['order_by'] ?? $dynamic_page['content']['order_by'] ?? 'title',
                 'param:order_dir' => $_GET['order_dir'] ?? $dynamic_page['content']['order_dir'] ?? 'asc',
             ]);
-            foreach (['category', 'tag', 'q'] as $key) {
+
+            // Make sure these keys always exist, even when missing from the URL
+            foreach (array_merge(['q'], $allowedFilters) as $key) {
                 $page['param:' . $key] = $page['param:' . $key] ?? null;
             }
 
@@ -141,31 +149,30 @@ if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
             if ($isMarkdown) {
                 $pages = array_merge($pages, $markdown->getPages(
                     page: $page['param:page'],
-                    path: $list_path,
+                    route: $list_route,
                     perPage: $page['param:per_page'],
-                    category: $page['param:category'],
-                    tag: $page['param:tag'],
+                    filters: $filters,
                     search: $page['param:q'],
                     orderBy: $page['param:order_by'],
                     orderDir: $page['param:order_dir'],
                 ));
+
                 $pagination = array_merge($pagination, renderPaginationLinks(
                     $pages['current_page'],
                     $pages['last_page'],
-                    baseUrl: '/' . $list_path_t,
-                    extraParams: [
-                        'category' => $page['param:category'],
-                        'tag'      => $page['param:tag'],
-                        'q'        => $page['param:q'],
-                    ],
+                    baseUrl: '/' . $list_route_t,
+                    // Every active filter is carried over to the pagination links
+                    extraParams: array_merge($filters, [
+                        'q' => $page['param:q'],
+                    ]),
                 ));
             }
 
-            require $views['list'];
+            require $template['list'];
             exit;
         }
 
-        $pid = substr($route, strlen($list_path_t) + 1);
+        $pid = substr($route, strlen($list_route_t) + 1);
         $page['route:id'] = $pid;
 
         if ($isMarkdown && ($pid === '' || str_contains($pid, '/'))) {
@@ -173,11 +180,11 @@ if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
         }
 
         // /{list}/{slug}
-        if (empty($views['item'])) {
+        if (empty($template['item'])) {
             break;
         }
         if ($isMarkdown) {
-            $found = $markdown->getPage($pid);
+            $found = $markdown->getPage($list_route, $pid);
             if (!$found) {
                 break;
             }
@@ -185,7 +192,9 @@ if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
         }
         $is['dynamic_item'] = true;
 
-        require $views['item'];
+        require $page['template'] ?? null
+            ? rtrim(dirname($page['_file']), '/') . '/' . ltrim($page['template'], '/')
+            : $template['item'];
         exit;
     }
 }

@@ -6,7 +6,7 @@
 $base_url = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/');
 
 // Get the full path the user typed, WITHOUT the query string (?id=5 etc).
-//   Example: "site.com/blog/5?ref=fb" -> $path = "/blog/5"
+//   Example: "site.com/blog/5?foo=bar" -> $path = "/blog/5"
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
 // Strip $base_url from the front of $path if present, leaving just the "route".

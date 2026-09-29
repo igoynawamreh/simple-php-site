@@ -27,18 +27,19 @@ const ERROR_PAGE  = [
 const STATIC_PAGES = [
     [
         'title'    => 'About',
-        'url'      => '/about',
+        'route'    => '/about',
         'template' => __DIR__ . '/app/about/about.html.php',
-        'content'  => __DIR__ . '/app/about/about.md', // `content` is optional
+        // Markdown `content` is optional
+        'content'  => __DIR__ . '/app/about/about.md',
     ],
     [
         'title'    => 'About Segment 1',
-        'url'      => '/about/[foo]',
+        'route'    => '/about/[foo]',
         'template' => __DIR__ . '/app/about/about-[foo].html.php',
     ],
     [
         'title'    => 'About Segment 2',
-        'url'      => '/about/[foo]/[bar]',
+        'route'    => '/about/[foo]/[bar]',
         'template' => __DIR__ . '/app/about/about-[foo]-[bar].html.php',
     ],
 ];
@@ -46,15 +47,16 @@ const STATIC_PAGES = [
 const DYNAMIC_PAGES = [
     '/article' => [
         'title'    => 'Article',
-        'content' => [ // `content` is optional
+        // Markdown `content` is optional
+        'content'  => [
             'dir'       => __DIR__ . '/app/article/content',
             'per_page'  => 5,
             'order_by'  => 'title',
             'order_dir' => 'asc',
         ],
-        'view' => [
-            'list'   => __DIR__ . '/app/article/view/list.html.php',
-            'item'   => __DIR__ . '/app/article/view/item.html.php',
+        'template' => [
+            'list' => __DIR__ . '/app/article/list.html.php',
+            'item' => __DIR__ . '/app/article/item.html.php',
         ],
     ],
 ];

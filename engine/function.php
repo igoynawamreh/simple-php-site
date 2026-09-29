@@ -76,12 +76,12 @@ function merge_query_url(string $url): string {
 }
 
 /**
- * Find the DYNAMIC_PAGES config entry matching $path, tolerant of
+ * Find the DYNAMIC_PAGES config entry matching $route, tolerant of
  * leading/trailing slash variations ('article', '/article', '/article/'
  * all match the same config key).
  */
-function resolve_dynamic_page(string $path): ?array {
-    $normalized = '/' . trim($path, '/');
+function resolve_dynamic_page(string $route): ?array {
+    $normalized = '/' . trim($route, '/');
 
     foreach (DYNAMIC_PAGES as $key => $page) {
         if ('/' . trim($key, '/') === $normalized) {
@@ -93,21 +93,59 @@ function resolve_dynamic_page(string $path): ?array {
 }
 
 /**
+ * Filter a list of page metadata by arbitrary fields.
+ * - array field (e.g. tags)       -> matches if any item equals the expected value
+ * - scalar field (e.g. category)  -> matches if the value equals the expected value
+ * - $expected is an array         -> matches if any of the values equals (OR)
+ * - multiple fields at once       -> all of them must match (AND)
+ * - null / '' / [] filters are ignored
+ */
+function filter_pages_by_fields(array $pages, array $filters): array {
+    // URL values are always strings, while YAML values can be int/bool
+    $normalize = fn($v) => is_bool($v) ? ($v ? 'true' : 'false') : (string) $v;
+
+    foreach ($filters as $field => $expected) {
+        if ($expected === null || $expected === '' || $expected === []) {
+            continue;
+        }
+
+        $expectedValues = array_map($normalize, (array) $expected);
+
+        $pages = array_values(array_filter(
+            $pages,
+            function ($p) use ($field, $expectedValues, $normalize) {
+                $actual = $p[$field] ?? null;
+                $actual = is_array($actual) ? $actual : [$actual];
+
+                foreach ($actual as $v) {
+                    if (is_scalar($v) && in_array($normalize($v), $expectedValues, true)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        ));
+    }
+
+    return $pages;
+}
+
+/**
  * Generate a sorted/filtered list of pages for a DYNAMIC_PAGES entry,
  * reading from its markdown metadata cache file (<dir>/.cache.php).
  *
  * $order_by/$order_dir default to whatever is set in the page's config
  * ('content.order_by' / 'content.order_dir') when not explicitly passed.
  */
-function generate_list(
-    string $path,
+function generate_page_list(
+    string $route,
     int $count = 0,
     ?string $order_by = null,
     ?string $order_dir = null,
-    ?string $category = null,
-    ?string $tag = null
+    array $filters = []
 ): array {
-    $page_config = resolve_dynamic_page($path);
+    $page_config = resolve_dynamic_page($route);
 
     if ($page_config === null || empty($page_config['content']['dir'])) {
         return [];
@@ -121,27 +159,20 @@ function generate_list(
     // Reads a valid cache directly, or rebuilds it internally if
     // missing/stale.
     $markdown = new Markdown($dir);
-    $pages = $markdown->getAllPagesMeta($path);
+    $pages = $markdown->getAllPagesMeta($route);
 
     if (empty($pages)) {
-        return ['title' => $page_config['title'] ?? null, 'list' => []];
+        return [
+            'title' => $page_config['title'] ?? null,
+            'route' => '/' . trim($route, '/'),
+            'list'  => [],
+        ];
     }
 
-    if ($category !== null && $category !== '') {
-        $pages = array_values(array_filter(
-            $pages,
-            fn($p) => ($p['category'] ?? null) === $category
-        ));
-    }
+    // Filter by any metadata field
+    $pages = filter_pages_by_fields($pages, $filters);
 
-    if ($tag !== null && $tag !== '') {
-        $pages = array_values(array_filter(
-            $pages,
-            fn($p) => in_array($tag, $p['tags'] ?? [], true)
-        ));
-    }
-
-    $getSortValue = fn($p) => $p[$order_by] ?? $p[$order_by] ?? null;
+    $getSortValue = fn($p) => $p[$order_by] ?? null;
 
     usort($pages, function ($a, $b) use ($getSortValue, $order_by, $order_dir) {
         $va = $getSortValue($a);
@@ -164,18 +195,25 @@ function generate_list(
 
     return [
         'title' => $page_config['title'] ?? null,
-        'url'   => '/' . trim($path, '/'),
+        'route' => '/' . trim($route, '/'),
         'list'  => $pages,
     ];
 }
 
 /**
- * Generate a de-duplicated list of categories used across all pages in a
- * DYNAMIC_PAGES entry, each with a link to the filtered listing
- * (?category=...). Reads from the markdown metadata cache file.
+ * Generate a de-duplicated list of values used for a given metadata field
+ * across all pages in a DYNAMIC_PAGES entry, each with a link to the
+ * filtered listing (?{param}=...). Works for scalar fields (e.g. category)
+ * and list fields (e.g. tags). Reads from the markdown metadata cache.
+ *
+ * @param string      $route  Dynamic page route.
+ * @param string      $field Metadata field name (e.g. 'category', 'tags', 'author').
+ * @param string|null $param URL query parameter name. Defaults to $field.
  */
-function generate_category_list(string $path): array {
-    $page_config = resolve_dynamic_page($path);
+function generate_field_list(string $route, string $field, ?string $param = null): array {
+    $param = $param ?? $field;
+
+    $page_config = resolve_dynamic_page($route);
 
     if ($page_config === null || empty($page_config['content']['dir'])) {
         return [];
@@ -185,108 +223,42 @@ function generate_category_list(string $path): array {
 
     // Reads a valid cache directly, or rebuilds it internally if missing/stale.
     $markdown = new Markdown($dir);
-    $pages = $markdown->getAllPagesMeta($path);
+    $pages = $markdown->getAllPagesMeta($route);
 
     if (empty($pages)) {
         return [];
     }
 
-    // Collect unique categories — use category name as array key to dedupe cheaply.
-    $categories = [];
+    // Collect unique values: use the value as array key to dedupe cheaply.
+    // (array) cast handles both scalar fields and list fields.
+    $values = [];
     foreach ($pages as $page) {
-        $category = $page['category'] ?? null;
-        if ($category !== null && $category !== '') {
-            $categories[$category] = true;
+        foreach ((array) ($page[$field] ?? []) as $value) {
+            if (is_scalar($value) && $value !== '') {
+                $values[(string) $value] = true;
+            }
         }
     }
 
-    $categoryTitles = array_keys($categories);
-    sort($categoryTitles, SORT_STRING | SORT_FLAG_CASE);
+    // array_keys() turns numeric-looking keys into ints, so cast back to string.
+    $titles = array_map('strval', array_keys($values));
+    sort($titles, SORT_STRING | SORT_FLAG_CASE);
 
-    $base = '/' . trim($path, '/');
-    $currentCategory = $_GET['category'] ?? null;
+    $base = '/' . trim($route, '/');
 
-    return [
-        'selected' => $currentCategory,
-        'list'     => array_map(
-            fn($category) => [
-                'title'  => $category,
-                'url'    => $base . '?category=' . urlencode($category),
-                'active' => $currentCategory !== null && $currentCategory === $category,
-            ],
-            $categoryTitles
-        ),
-    ];
-}
-
-/**
- * Generate a de-duplicated list of tags used across all pages in a
- * DYNAMIC_PAGES entry, each with a link to the filtered listing
- * (?tag=...). Reads from the markdown metadata cache file.
- */
-function generate_tag_list(string $path): array {
-    $page_config = resolve_dynamic_page($path);
-
-    if ($page_config === null || empty($page_config['content']['dir'])) {
-        return [];
-    }
-
-    $dir = rtrim($page_config['content']['dir'], '/');
-
-    // Reads a valid cache directly, or rebuilds it internally if missing/stale.
-    $markdown = new Markdown($dir);
-    $pages = $markdown->getAllPagesMeta($path);
-
-    if (empty($pages)) {
-        return [];
-    }
-
-    // Collect unique tags — use tag name as array key to dedupe cheaply.
-    $tags = [];
-    foreach ($pages as $page) {
-        foreach ((array) ($page['tags'] ?? []) as $tag) {
-            $tags[$tag] = true;
-        }
-    }
-
-    $tagTitles = array_keys($tags);
-    sort($tagTitles, SORT_STRING | SORT_FLAG_CASE);
-
-    $base = '/' . trim($path, '/');
-    $currentTag = $_GET['tag'] ?? null;
+    // The URL value may be a string (?tags=php) or an array (?tags[]=php&tags[]=js).
+    $selected = $_GET[$param] ?? null;
+    $selectedValues = $selected === null ? [] : array_map('strval', (array) $selected);
 
     return [
-        'selected' => $currentTag,
+        'selected' => $selected,
         'list'     => array_map(
-            fn($tag) => [
-                'title' => $tag,
-                'url'   => $base . '?tag=' . urlencode($tag),
-                'active' => $currentTag !== null && $currentTag === $tag,
+            fn($title) => [
+                'title'  => $title,
+                'route'  => $base . '?' . http_build_query([$param => $title]),
+                'active' => in_array($title, $selectedValues, true),
             ],
-            $tagTitles
+            $titles
         ),
     ];
-}
-
-/**
- * Read a markdown file, split its YAML frontmatter from the body, resolve
- * {{ ... }} template placeholders in the body, then parse it to HTML.
- * Returns an array of all frontmatter fields plus 'content' (rendered HTML).
- * Returns an empty array if the file doesn't exist.
- */
-function render_md_from_file(string $file_path): array {
-    if (!file_exists($file_path)) {
-        return [];
-    }
-
-    $markdown = new Markdown(dirname($file_path));
-
-    $raw = file_get_contents($file_path);
-    [$meta, $body] = $markdown->parseFrontmatter($raw);
-
-    $body = get_template_renderer()->render($body);
-
-    return array_merge($meta, [
-        'content' => x\markdown\from($body),
-    ]);
 }
