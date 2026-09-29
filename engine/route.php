@@ -19,6 +19,9 @@ foreach ($_GET as $key => $value) {
     $page['param:' . $key] = $value;
 }
 
+$page['param:page'] = isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1;
+$page['param:per_page'] = max(1, (int) ($_GET['per_page'] ?? 10));
+
 $is['home']         = false;
 $is['static']       = false;
 $is['dynamic']      = false;
@@ -134,7 +137,6 @@ if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
             $filters = array_intersect_key($_GET, array_flip($allowedFilters));
 
             $page = array_merge($page, [
-                'param:page'      => isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1,
                 'param:per_page'  => max(1, (int) ($_GET['per_page'] ?? $dynamic_page['content']['per_page'] ?? 10)),
                 'param:order_by'  => $_GET['order_by'] ?? $dynamic_page['content']['order_by'] ?? 'title',
                 'param:order_dir' => $_GET['order_dir'] ?? $dynamic_page['content']['order_dir'] ?? 'asc',
@@ -158,9 +160,9 @@ if (defined('DYNAMIC_PAGES') && !empty(DYNAMIC_PAGES)) {
                     orderDir: $page['param:order_dir'],
                 ));
 
-                $pagination = array_merge($pagination, renderPaginationLinks(
-                    $pages['current_page'],
-                    $pages['last_page'],
+                $pagination = array_merge($pagination, generate_pagination(
+                    currentPage: $pages['current_page'],
+                    lastPage: $pages['last_page'],
                     baseUrl: '/' . $list_route_t,
                     // Every active filter is carried over to the pagination links
                     extraParams: array_merge($filters, [

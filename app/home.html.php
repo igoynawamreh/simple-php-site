@@ -4,7 +4,15 @@
 $articles = generate_page_list(
   route: '/article',
   count: 5,
+  // page: $page['param:page'],
+  // perPage: 10,
 );
+// $pagination = generate_pagination(
+//     currentPage: $articles['current_page'],
+//     lastPage: $articles['last_page'],
+//     baseUrl: '',
+//     extraParams: [],
+// );
 ?>
 
 <h1><?= e($page['title']) ?></h1>

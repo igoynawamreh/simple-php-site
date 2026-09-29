@@ -93,7 +93,7 @@ class Markdown {
                 && ($cached['newest_mtime'] ?? 0) >= $newestMtime
                 && ($cached['file_count'] ?? -1) === count($files)
             ) {
-                return $cached['pages'];
+                return $cached;
             }
         }
 
@@ -133,21 +133,24 @@ class Markdown {
         });
 
         $title = DYNAMIC_PAGES[$route]['title'] ?? null;
+
+        $data = [
+            'title'         => $title,
+            'route'         => '/' . trim($route, '/'),
+            'newest_mtime'  => $newestMtime,
+            'file_count'    => count($files),
+            '_content_path' => $this->contentDir,
+            '_cache_file'   => $cacheFile,
+            'pages'         => $pages,
+        ];
+
         file_put_contents(
             $cacheFile,
-            '<?php return ' . var_export([
-                'title'         => $title,
-                'route'         => '/' . trim($route, '/'),
-                'pages'         => $pages,
-                'newest_mtime'  => $newestMtime,
-                'file_count'    => count($files),
-                '_content_path' => $this->contentDir,
-                '_cache_file'   => $cacheFile,
-            ], true) . ';',
+            '<?php return ' . var_export($data, true) . ';',
             LOCK_EX
         );
 
-        return $pages;
+        return $data;
     }
 
     /**
@@ -194,10 +197,10 @@ class Markdown {
         string $orderBy = 'title',
         ?string $orderDir = null
     ): array {
-        $allPages = $this->getAllPagesMeta($route);
+        $allPagesMeta = $this->getAllPagesMeta($route);
 
         // Filter by any metadata field (see filter_pages_by_fields())
-        $allPages = filter_pages_by_fields($allPages, $filters);
+        $allPages = filter_pages_by_fields($allPagesMeta['pages'], $filters);
 
         // Filter + scoring by title and body
         if ($search !== null && $search !== '') {
@@ -299,13 +302,58 @@ class Markdown {
         $offset = ($page - 1) * $perPage;
 
         return [
-            'list'         => array_slice($allPages, $offset, $perPage),
-            'total'        => $total,
-            'per_page'     => $perPage,
-            'current_page' => $page,
-            'last_page'    => $totalPages,
+            'list'          => array_slice($allPages, $offset, $perPage),
+            'total'         => $total,
+            'per_page'      => $perPage,
+            'current_page'  => $page,
+            'last_page'     => $totalPages,
+            'title'         => $allPagesMeta['title'],
+            'route'         => $allPagesMeta['route'],
+            'newest_mtime'  => $allPagesMeta['newest_mtime'],
+            'file_count'    => $allPagesMeta['file_count'],
+            '_content_path' => $allPagesMeta['_content_path'],
+            '_cache_file'   => $allPagesMeta['_cache_file'],
         ];
     }
+}
+
+/**
+ * Filter a list of page metadata by arbitrary fields.
+ * - array field (e.g. tags)       -> matches if any item equals the expected value
+ * - scalar field (e.g. category)  -> matches if the value equals the expected value
+ * - $expected is an array         -> matches if any of the values equals (OR)
+ * - multiple fields at once       -> all of them must match (AND)
+ * - null / '' / [] filters are ignored
+ */
+function filter_pages_by_fields(array $pages, array $filters): array {
+    // URL values are always strings, while YAML values can be int/bool
+    $normalize = fn($v) => is_bool($v) ? ($v ? 'true' : 'false') : (string) $v;
+
+    foreach ($filters as $field => $expected) {
+        if ($expected === null || $expected === '' || $expected === []) {
+            continue;
+        }
+
+        $expectedValues = array_map($normalize, (array) $expected);
+
+        $pages = array_values(array_filter(
+            $pages,
+            function ($p) use ($field, $expectedValues, $normalize) {
+                $actual = $p[$field] ?? null;
+                $actual = is_array($actual) ? $actual : [$actual];
+
+                foreach ($actual as $v) {
+                    if (is_scalar($v) && in_array($normalize($v), $expectedValues, true)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        ));
+    }
+
+    return $pages;
 }
 
 /**
@@ -333,12 +381,165 @@ function render_md_from_file(string $file): array {
 }
 
 /**
+ * Generate a filtered, sorted (and optionally paginated) list of pages
+ * for a DYNAMIC_PAGES entry, delegating the actual work to
+ * Markdown::getPages() — reads from the markdown metadata cache file
+ * (<dir>/.cache.php).
+ *
+ * $order_by/$order_dir default to whatever is set in the page's config
+ * ('content.order_by' / 'content.order_dir') when not explicitly passed.
+ *
+ * Pagination is opt-in: pass $page to get back a paginated result
+ * (with 'total', 'per_page', 'current_page', 'last_page'). Without $page,
+ * this returns a flat 'list' — optionally capped to $count items — which
+ * suits callers that don't need pagination (e.g. "latest N posts" widgets).
+ *
+ * @param string      $route     Dynamic page route.
+ * @param int         $count     Cap the flat list to this many items. Ignored when paginating.
+ * @param string|null $order_by  Metadata field to sort by. Falls back to page config, then 'title'.
+ * @param string|null $order_dir 'asc' or 'desc'. Falls back to page config, then 'asc'.
+ * @param array       $filters   Field => value(s) to filter by (see filter_pages_by_fields()).
+ * @param string|null $search    Search query, matched against title and body.
+ * @param int|null    $page      Current page number. Passing this enables pagination.
+ * @param int|null    $perPage   Items per page. Defaults to 10 when paginating.
+ */
+function generate_page_list(
+    string $route,
+    int $count = 0,
+    ?string $order_by = null,
+    ?string $order_dir = null,
+    array $filters = [],
+    ?string $search = null,
+    ?int $page = null,
+    ?int $perPage = null
+): array {
+    $page_config = resolve_dynamic_page($route);
+
+    if ($page_config === null || empty($page_config['content']['dir'])) {
+        return [];
+    }
+
+    $dir = rtrim($page_config['content']['dir'], '/');
+
+    $order_by  = $order_by  ?? ($page_config['content']['order_by']  ?? 'title');
+    $order_dir = $order_dir ?? ($page_config['content']['order_dir'] ?? 'asc');
+
+    $markdown = new Markdown($dir);
+
+    // Pagination is opt-in: only kicks in when $page is explicitly passed.
+    // Without it, fetch everything (perPage = PHP_INT_MAX) so $count can
+    // still cap the result the old way, without paginating.
+    $paginating = $page !== null;
+    $perPage    = $paginating ? ($perPage ?? 10) : PHP_INT_MAX;
+
+    $result = $markdown->getPages(
+        page: $page ?? 1,
+        route: $route,
+        perPage: $perPage,
+        filters: $filters,
+        search: $search,
+        orderBy: $order_by,
+        orderDir: $order_dir
+    );
+
+    $base = [
+        'title' => $page_config['title'] ?? null,
+        'route' => '/' . trim($route, '/'),
+    ];
+
+    if ($paginating) {
+        return $base + [
+            'list'         => $result['list'],
+            'total'        => $result['total'],
+            'per_page'     => $result['per_page'],
+            'current_page' => $result['current_page'],
+            'last_page'    => $result['last_page'],
+        ];
+    }
+
+    $list = $result['list'];
+    if ($count > 0) {
+        $list = array_slice($list, 0, $count);
+    }
+
+    return $base + ['list' => $list];
+}
+
+/**
+ * Generate a de-duplicated list of values used for a given metadata field
+ * across all pages in a DYNAMIC_PAGES entry, each with a link to the
+ * filtered listing (?{param}=...). Works for scalar fields (e.g. category)
+ * and list fields (e.g. tags). Reads from the markdown metadata cache.
+ *
+ * @param string      $route  Dynamic page route.
+ * @param string      $field Metadata field name (e.g. 'category', 'tags', 'author').
+ * @param string|null $param URL query parameter name. Defaults to $field.
+ */
+function generate_field_list(string $route, string $field, ?string $param = null): array {
+    $param = $param ?? $field;
+
+    $page_config = resolve_dynamic_page($route);
+
+    if ($page_config === null || empty($page_config['content']['dir'])) {
+        return [];
+    }
+
+    $dir = rtrim($page_config['content']['dir'], '/');
+
+    // Reads a valid cache directly, or rebuilds it internally if missing/stale.
+    $markdown = new Markdown($dir);
+    $allPagesMeta = $markdown->getAllPagesMeta($route);
+    $pages = $allPagesMeta['pages'];
+
+    if (empty($pages)) {
+        return [];
+    }
+
+    // Collect unique values: use the value as array key to dedupe cheaply.
+    // (array) cast handles both scalar fields and list fields.
+    $values = [];
+    foreach ($pages as $page) {
+        foreach ((array) ($page[$field] ?? []) as $value) {
+            if (is_scalar($value) && $value !== '') {
+                $values[(string) $value] = true;
+            }
+        }
+    }
+
+    // array_keys() turns numeric-looking keys into ints, so cast back to string.
+    $titles = array_map('strval', array_keys($values));
+    sort($titles, SORT_STRING | SORT_FLAG_CASE);
+
+    $base = '/' . trim($route, '/');
+
+    // Normalized, deduped list of currently selected values from the URL.
+    // Always an array, whether the URL sent one value (?category=news) or
+    // several (?tags[]=php&tags[]=js) — keeps this predictable for callers.
+    $selected = array_values(array_filter(
+        array_map('strval', (array) ($_GET[$param] ?? [])),
+        fn($v) => $v !== ''
+    ));
+
+    return [
+        'selected' => $selected,
+        'list'     => array_map(
+            fn($title) => [
+                'title'  => $title,
+                'route'  => $base . '?' . http_build_query([$param => $title]),
+                'active' => in_array($title, $selected, true),
+            ],
+            $titles
+        ),
+    ];
+}
+
+/**
  * Build pagination data (prev, next, list of page numbers with a window
  * around the current page + "..." markers).
  *
  * $baseUrl example: '/article' -> result '/article?page=2'
  */
-function renderPaginationLinks(int $currentPage, int $totalPages, string $baseUrl = '', array $extraParams = [], int $window = 2): array {
+function generate_pagination(int $currentPage, int $lastPage, string $baseUrl = '', array $extraParams = [], int $window = 2): array {
     $baseUrl = '/' . trim($baseUrl, '/');
 
     $urlFor = function (int $p) use ($baseUrl, $extraParams) {
@@ -349,8 +550,8 @@ function renderPaginationLinks(int $currentPage, int $totalPages, string $baseUr
     $pages = [];
     $lastAdded = 0;
 
-    for ($i = 1; $i <= $totalPages; $i++) {
-        $isEdge   = $i === 1 || $i === $totalPages;
+    for ($i = 1; $i <= $lastPage; $i++) {
+        $isEdge   = $i === 1 || $i === $lastPage;
         $isNearBy = $i >= $currentPage - $window && $i <= $currentPage + $window;
 
         if ($isEdge || $isNearBy) {
@@ -364,9 +565,9 @@ function renderPaginationLinks(int $currentPage, int $totalPages, string $baseUr
 
     return [
         'prev'         => $currentPage > 1 ? $urlFor($currentPage - 1) : null,
-        'next'         => $currentPage < $totalPages ? $urlFor($currentPage + 1) : null,
+        'next'         => $currentPage < $lastPage ? $urlFor($currentPage + 1) : null,
         'current_page' => $currentPage,
-        'last_page'    => $totalPages,
+        'last_page'    => $lastPage,
         'pages'        => $pages,
     ];
 }
