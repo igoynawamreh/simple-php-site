@@ -16,7 +16,9 @@ $tags = generate_field_list('/article', 'tags');
 
   <?php if (!empty($categories)): ?>
     <div class="col-auto dropdown">
-      <input type="hidden" name="category" value="<?= e($categories['selected'][0] ?? null) ?>">
+      <?php if (!empty($categories['selected'][0])): ?>
+        <input type="hidden" name="category" value="<?= e($categories['selected'][0]) ?>">
+      <?php endif ?>
 
       <button class="btn btn-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
         Category<?= $categories['selected'][0] ?? null ? ': ' . $categories['selected'][0] : '' ?>

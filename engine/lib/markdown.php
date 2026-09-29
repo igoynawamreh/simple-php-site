@@ -78,10 +78,12 @@ class Markdown {
         return $this->renderer;
     }
 
-    public function getAllPagesMeta(string $route = ''): array {
+    public function getAllPagesMeta(string $route): array {
         $files       = glob($this->contentDir . '/*.md');
         $cacheFile   = $this->getCacheFile();
         $newestMtime = $this->getNewestMtime($files);
+
+        $page_config = resolve_page($route);
 
         // Cache is valid if: it exists, no file is newer than when it was built,
         // and the file count still matches (catches deletions, which don't
@@ -132,7 +134,7 @@ class Markdown {
             return $b <=> $a;
         });
 
-        $title = DYNAMIC_PAGES[$route]['title'] ?? null;
+        $title = $page_config['title'] ?? null;
 
         $data = [
             'title'         => $title,
@@ -382,7 +384,7 @@ function render_md_from_file(string $file): array {
 
 /**
  * Generate a filtered, sorted (and optionally paginated) list of pages
- * for a DYNAMIC_PAGES entry, delegating the actual work to
+ * for a directory-based markdown entry, delegating the actual work to
  * Markdown::getPages() — reads from the markdown metadata cache file
  * (<dir>/.cache.php).
  *
@@ -413,7 +415,7 @@ function generate_page_list(
     ?int $page = null,
     ?int $perPage = null
 ): array {
-    $page_config = resolve_dynamic_page($route);
+    $page_config = resolve_page($route);
 
     if ($page_config === null || empty($page_config['content']['dir'])) {
         return [];
@@ -467,7 +469,7 @@ function generate_page_list(
 
 /**
  * Generate a de-duplicated list of values used for a given metadata field
- * across all pages in a DYNAMIC_PAGES entry, each with a link to the
+ * across all pages in a directory-based markdown entry, each with a link to the
  * filtered listing (?{param}=...). Works for scalar fields (e.g. category)
  * and list fields (e.g. tags). Reads from the markdown metadata cache.
  *
@@ -478,7 +480,7 @@ function generate_page_list(
 function generate_field_list(string $route, string $field, ?string $param = null): array {
     $param = $param ?? $field;
 
-    $page_config = resolve_dynamic_page($route);
+    $page_config = resolve_page($route);
 
     if ($page_config === null || empty($page_config['content']['dir'])) {
         return [];

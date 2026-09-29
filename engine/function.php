@@ -117,15 +117,18 @@ function toggle_query_value(string $url, string $field, string $value): string {
 }
 
 /**
- * Find the DYNAMIC_PAGES config entry matching $route, tolerant of
- * leading/trailing slash variations ('article', '/article', '/article/'
- * all match the same config key).
+ * Find the PAGES entry whose 'route' matches $route exactly,
+ * tolerant of leading/trailing slash variations ('article', '/article',
+ * '/article/' all match the same entry). Does not match dynamic routes
+ * with placeholders (e.g. '/about/[foo]') against a concrete path.
  */
-function resolve_dynamic_page(string $route): ?array {
+function resolve_page(string $route): ?array {
     $normalized = '/' . trim($route, '/');
 
-    foreach (DYNAMIC_PAGES as $key => $page) {
-        if ('/' . trim($key, '/') === $normalized) {
+    foreach (PAGES as $page) {
+        $pageRoute = '/' . trim($page['route'] ?? '', '/');
+
+        if ($pageRoute === $normalized) {
             return $page;
         }
     }

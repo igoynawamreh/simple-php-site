@@ -24,12 +24,12 @@ const ERROR_PAGE  = [
     'template' => __DIR__ . '/app/404.html.php',
 ];
 
-const STATIC_PAGES = [
+const PAGES = [
     [
         'title'    => 'About',
         'route'    => '/about',
         'template' => __DIR__ . '/app/about/about.html.php',
-        // Markdown `content` is optional
+        // Single file Markdown (optional)
         'content'  => __DIR__ . '/app/about/about.md',
     ],
     [
@@ -42,12 +42,20 @@ const STATIC_PAGES = [
         'route'    => '/about/[foo]/[bar]',
         'template' => __DIR__ . '/app/about/about-[foo]-[bar].html.php',
     ],
-];
-
-const DYNAMIC_PAGES = [
-    '/article' => [
+    [
+        // Example auto list/item routing and directory-based markdown
         'title'    => 'Article',
-        // Markdown `content` is optional
+        'route'    => '/article',
+        // 'template' as { list, item } (instead of a single file) makes this
+        // one entry automatically cover two routes: '/article' (list) and
+        // '/article/[slug]' (item)
+        // the '[slug]' segment is appended by the router automatically
+        'template' => [
+            'list' => __DIR__ . '/app/article/list.html.php',
+            'item' => __DIR__ . '/app/article/item.html.php',
+        ],
+        // 'content.dir' populates $page/$pages for both routes above by
+        // reading markdown files from this directory.
         'content'  => [
             'dir'       => __DIR__ . '/app/article/content',
             'per_page'  => 5,
@@ -55,10 +63,6 @@ const DYNAMIC_PAGES = [
             'order_dir' => 'asc',
             // Allowed filters
             'filter'    => ['category', 'tags'],
-        ],
-        'template' => [
-            'list' => __DIR__ . '/app/article/list.html.php',
-            'item' => __DIR__ . '/app/article/item.html.php',
         ],
     ],
 ];
