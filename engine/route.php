@@ -53,11 +53,10 @@ if ($route === '') {
  */
 if (defined('PAGES') && !empty(PAGES)) {
     foreach (PAGES as $page_config) {
-        // Auto list/item routing is driven by the shape of 'template',
-        // not by whether markdown content is used — a route gets both a
-        // list pattern (the route as-is) and an item pattern
-        // (route + '/[slug]') whenever 'template' is { list, item }
-        // instead of a single file path.
+        // Auto list/item routing is driven by the shape of 'template': a route
+        // gets both a list pattern (the route as-is) and an item pattern
+        // (route + '/[slug]') whenever 'template' is { list, item } instead of
+        // a single file path.
         $hasListItemTemplate = is_array($page_config['template'] ?? null)
             && isset($page_config['template']['list'], $page_config['template']['item']);
 
@@ -97,7 +96,7 @@ if (defined('PAGES') && !empty(PAGES)) {
             }
 
             $page['title'] = $page_config['title'] ?? $page['title'];
-            $is['page']  = true;
+            $is['page']    = true;
 
             if ($mode === 'item') {
                 $is['page_item'] = true;
@@ -115,7 +114,7 @@ if (defined('PAGES') && !empty(PAGES)) {
                 }
             }
 
-            // Directory-based Markdown — populates $page/$pages when this
+            // Directory-based Markdown — populates `$page`/`$pages` when this
             // route's data actually comes from a markdown directory.
             if ($hasContentDir) {
                 $dir      = rtrim($page_config['content']['dir'], '/');
@@ -128,16 +127,15 @@ if (defined('PAGES') && !empty(PAGES)) {
                     $slug = $page['route:slug'] ?? '';
                     $item = $markdown->getPage($page_config['route'], $slug);
 
-                    // No matching file for this slug -> not a real article,
+                    // No matching file for this slug,
                     // fall through to the next PAGES entry / 404.
                     if ($item === null) {
                         continue 2;
                     }
 
                     $page = array_merge($page, $item);
-                    $is['page_item'] = true;
                 } elseif ($mode === 'list') {
-                    // Fields that may be used as filters (per page config, with a default)
+                    // Fields that may be used as filter (per page config, with a default)
                     $allowedFilters = $page_config['content']['filter'] ?? ['category', 'tags'];
 
                     // Only whitelisted fields from the URL become filters

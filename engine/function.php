@@ -117,10 +117,10 @@ function toggle_query_value(string $url, string $field, string $value): string {
 }
 
 /**
- * Find the PAGES entry whose 'route' matches $route exactly,
+ * Find the `PAGES` entry whose `route` matches `$route` exactly,
  * tolerant of leading/trailing slash variations ('article', '/article',
  * '/article/' all match the same entry). Does not match dynamic routes
- * with placeholders (e.g. '/about/[foo]') against a concrete path.
+ * with placeholders (e.g. '/blog/[foo]') against a concrete path.
  */
 function resolve_page(string $route): ?array {
     $normalized = '/' . trim($route, '/');

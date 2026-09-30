@@ -29,7 +29,7 @@ const PAGES = [
         'title'    => 'About',
         'route'    => '/about',
         'template' => __DIR__ . '/app/about/about.html.php',
-        // Single file Markdown (optional)
+        // Single file markdown (optional)
         'content'  => __DIR__ . '/app/about/about.md',
     ],
     [
@@ -46,16 +46,16 @@ const PAGES = [
         // Example auto list/item routing and directory-based markdown
         'title'    => 'Article',
         'route'    => '/article',
-        // 'template' as { list, item } (instead of a single file) makes this
-        // one entry automatically cover two routes: '/article' (list) and
-        // '/article/[slug]' (item)
-        // the '[slug]' segment is appended by the router automatically
+        // `template` as { list, item } (instead of a single file) makes this
+        // one entry automatically cover two routes: `/article` (list) and
+        // `/article/[slug]` (item)
+        // the `[slug]` segment is appended by the router automatically.
         'template' => [
             'list' => __DIR__ . '/app/article/list.html.php',
             'item' => __DIR__ . '/app/article/item.html.php',
         ],
-        // 'content.dir' populates $page/$pages for both routes above by
-        // reading markdown files from this directory.
+        // `content.dir` reads markdown files from this directory for both
+        // routes above.
         'content'  => [
             'dir'       => __DIR__ . '/app/article/content',
             'per_page'  => 5,

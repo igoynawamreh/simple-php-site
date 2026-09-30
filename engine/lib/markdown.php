@@ -473,7 +473,7 @@ function generate_page_list(
  * filtered listing (?{param}=...). Works for scalar fields (e.g. category)
  * and list fields (e.g. tags). Reads from the markdown metadata cache.
  *
- * @param string      $route  Dynamic page route.
+ * @param string      $route Markdown page route.
  * @param string      $field Metadata field name (e.g. 'category', 'tags', 'author').
  * @param string|null $param URL query parameter name. Defaults to $field.
  */
@@ -539,7 +539,7 @@ function generate_field_list(string $route, string $field, ?string $param = null
  * Build pagination data (prev, next, list of page numbers with a window
  * around the current page + "..." markers).
  *
- * $baseUrl example: '/article' -> result '/article?page=2'
+ * $baseUrl example: '/blog' -> result '/blog?page=2'
  */
 function generate_pagination(int $currentPage, int $lastPage, string $baseUrl = '', array $extraParams = [], int $window = 2): array {
     $baseUrl = '/' . trim($baseUrl, '/');

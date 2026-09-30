@@ -11,7 +11,7 @@ $tags = generate_field_list('/article', 'tags');
 
 <form method="GET" action="<?= url($page['route:list']) ?>" class="row g-2 mb-3">
   <div class="col-sm-auto">
-    <input class="form-control form-control-sm" name="q" value="<?= e($page['param:q']) ?>" placeholder="Search Title">
+    <input class="form-control form-control-sm" name="q" value="<?= e($page['param:q']) ?>" placeholder="Search">
   </div>
 
   <?php if (!empty($categories)): ?>
