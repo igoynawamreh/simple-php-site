@@ -53,15 +53,15 @@ if ($route === '') {
  */
 if (defined('PAGES') && !empty(PAGES)) {
     foreach (PAGES as $page_config) {
-        // Auto list/item routing is driven by the shape of 'template': a route
+        // Auto list/item routing is driven by the shape of `template`: a route
         // gets both a list pattern (the route as-is) and an item pattern
-        // (route + '/[slug]') whenever 'template' is { list, item } instead of
+        // (route + `/[slug]`) whenever `template` is { list, item } instead of
         // a single file path.
         $hasListItemTemplate = is_array($page_config['template'] ?? null)
             && isset($page_config['template']['list'], $page_config['template']['item']);
 
         // Whether markdown data actually comes from a directory. Independent
-        // of $hasListItemTemplate — a list/item template pair could, in
+        // of `$hasListItemTemplate` — a list/item template pair could, in
         // principle, source its data from somewhere other than markdown.
         $hasContentDir = isset($page_config['content']['dir']);
 
