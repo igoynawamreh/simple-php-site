@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/vendor/taufik-nurrohman/markdown/from.php';
 require_once __DIR__ . '/vendor/taufik-nurrohman/y-a-m-l/from.php';
+require_once __DIR__ . '/vendor/taufik-nurrohman/y-a-m-l/to.php';
 require_once __DIR__ . '/renderer.php';
 
 class Markdown {
@@ -9,8 +10,17 @@ class Markdown {
     private TemplateRenderer $renderer;
 
     public function __construct(string $contentDir, ?TemplateRenderer $renderer = null) {
+        $page_config = resolve_page_config($contentDir);
+
+        if ($page_config !== null && !empty($page_config['content']['dir'])) {
+            $contentDir = $page_config['content']['dir'];
+        }
+        if (is_file($contentDir)) {
+            $contentDir = dirname($contentDir);
+        }
+
         $this->contentDir = rtrim($contentDir, '/');
-        $this->renderer = $renderer ?? new TemplateRenderer();
+        $this->renderer = $renderer ?? get_template_renderer();
     }
 
     private function filenameToSlug(string $filename): string {
@@ -38,25 +48,6 @@ class Markdown {
     }
 
     /**
-     * Convert an absolute path to a path relative to the project root
-     * project folder name
-     * (e.g. /var/www/simple-php-site/foo/bar/content
-     *       -> foo/bar/content).
-     */
-    private function toRelativePath(string $absPath): string {
-        // This file lives in <project>/engine/lib/, so the project root is two levels up.
-        $root    = rtrim(str_replace('\\', '/', dirname(__DIR__, 2)), '/');
-        $absPath = str_replace('\\', '/', $absPath);
-
-        // Outside the project root: leave it untouched
-        if (strpos($absPath, $root . '/') !== 0) {
-            return $absPath;
-        }
-
-        return ltrim(substr($absPath, strlen($root)), '/');
-    }
-
-    /**
      * Split frontmatter (real YAML, parsed via @taufik-nurrohman/y-a-m-l) from the markdown body.
      * Supports nested values, lists, quoted strings, etc. — not just flat key: value.
      * Returns [meta_array, body_string]
@@ -74,6 +65,25 @@ class Markdown {
         return [$meta, $body];
     }
 
+    private function encodeFrontmatter(array $meta, string $tab = '  '): string {
+        $lines = [];
+
+        foreach ($meta as $key => $value) {
+            if (is_array($value)) {
+                if ($value === []) continue;
+                $lines[] = $key . ':';
+                foreach ($value as $item) {
+                    $lines[] = $tab . '- ' . x\y_a_m_l\to\v($item, $tab, 1);
+                }
+                continue;
+            }
+
+            $lines[] = $key . ': ' . x\y_a_m_l\to\v($value, $tab, 1);
+        }
+
+        return implode("\n", $lines);
+    }
+
     public function getRenderer(): TemplateRenderer {
         return $this->renderer;
     }
@@ -83,7 +93,15 @@ class Markdown {
         $cacheFile   = $this->getCacheFile();
         $newestMtime = $this->getNewestMtime($files);
 
-        $page_config = resolve_page($route);
+        $page_config = resolve_page_config($route);
+
+        if ($page_config === null || empty($page_config['content']['dir'])) {
+            if (is_dir($route)) {
+                $page_config = [
+                    'title' => null,
+                ];
+            }
+        }
 
         // Cache is valid if: it exists, no file is newer than when it was built,
         // and the file count still matches (catches deletions, which don't
@@ -110,7 +128,7 @@ class Markdown {
             // to the computed values — merge them LAST so they win even if the
             // frontmatter accidentally defines a field with the same name.
             $pages[] = array_merge($meta, [
-                'route' => '/' . trim($route, '/') . '/' . $slug,
+                'route' => (trim($route, '/') !== '' ? '/' : '') . trim($route, '/') . '/' . $slug,
                 'slug'  => $slug,
                 'title' => $meta['title'] ?? $slug,
                 'date'  => $meta['date'] ?? null,
@@ -146,13 +164,54 @@ class Markdown {
             'pages'         => $pages,
         ];
 
-        file_put_contents(
-            $cacheFile,
-            '<?php return ' . var_export($data, true) . ';',
-            LOCK_EX
-        );
+        if (is_dir($this->contentDir)) {
+            file_put_contents(
+                $cacheFile,
+                '<?php return ' . var_export($data, true) . ';',
+                LOCK_EX
+            );
+        }
 
         return $data;
+    }
+
+    /**
+     * Filter a list of page metadata by arbitrary fields.
+     * - array field (e.g. "tags")      -> matches if any item equals the expected value
+     * - scalar field (e.g. "category") -> matches if the value equals the expected value
+     * - `$expected` is an array        -> matches if any of the values equals (OR)
+     * - multiple fields at once        -> all of them must match (AND)
+     * - null / '' / [] filters are ignored
+     */
+    public function filter_pages_by_fields(array $pages, array $filters): array {
+        // URL values are always strings, while YAML values can be int/bool
+        $normalize = fn($v) => is_bool($v) ? ($v ? 'true' : 'false') : (string) $v;
+
+        foreach ($filters as $field => $expected) {
+            if ($expected === null || $expected === '' || $expected === []) {
+                continue;
+            }
+
+            $expectedValues = array_map($normalize, (array) $expected);
+
+            $pages = array_values(array_filter(
+                $pages,
+                function ($p) use ($field, $expectedValues, $normalize) {
+                    $actual = $p[$field] ?? null;
+                    $actual = is_array($actual) ? $actual : [$actual];
+
+                    foreach ($actual as $v) {
+                        if (is_scalar($v) && in_array($normalize($v), $expectedValues, true)) {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                }
+            ));
+        }
+
+        return $pages;
     }
 
     /**
@@ -162,7 +221,7 @@ class Markdown {
      * Returns null if the file doesn't exist.
      */
     public function getPage(string $route, string $slug): ?array {
-        $slug = $this->filenameToSlug(basename($slug));
+        $slug = $this->filenameToSlug($slug);
         $path = $this->contentDir . '/' . $slug . '.md';
 
         if (!is_file($path)) {
@@ -175,7 +234,7 @@ class Markdown {
         $body = $this->renderer->render($body);
 
         return array_merge($meta, [
-            'route'   => '/' . trim($route, '/') . '/' . $slug,
+            'route'   => (trim($route, '/') !== '' ? '/' : '') . trim($route, '/') . '/' . $slug,
             'slug'    => $slug,
             'title'   => $meta['title'] ?? $slug,
             'date'    => $meta['date'] ?? null,
@@ -191,18 +250,18 @@ class Markdown {
      *                          $orderBy is 'date', otherwise 'asc'.
      */
     public function getPages(
-        int $page = 1,
-        string $route = '',
-        int $perPage = 10,
-        array $filters = [],
+        string $route,
+        ?int $page = null,
+        int $count = 10,
         ?string $search = null,
+        array $filters = [],
         string $orderBy = 'title',
-        ?string $orderDir = null
+        ?string $orderDir = null,
     ): array {
         $allPagesMeta = $this->getAllPagesMeta($route);
 
-        // Filter by any metadata field (see filter_pages_by_fields())
-        $allPages = filter_pages_by_fields($allPagesMeta['pages'], $filters);
+        // Filter by any metadata field
+        $allPages = $this->filter_pages_by_fields($allPagesMeta['pages'], $filters);
 
         // Filter + scoring by title and body
         if ($search !== null && $search !== '') {
@@ -272,7 +331,21 @@ class Markdown {
 
         $getSortValue = fn($p) => $p[$orderBy] ?? null;
 
-        usort($allPages, function ($a, $b) use ($getSortValue, $orderBy, $orderDir, $search) {
+        $toTimestamp = static function ($value): int {
+            if ($value instanceof DateTimeInterface) {
+                return $value->getTimestamp();
+            }
+
+            if ($value === null || $value === '') {
+                return 0;
+            }
+
+            $timestamp = strtotime((string) $value);
+
+            return $timestamp !== false ? $timestamp : 0;
+        };
+
+        usort($allPages, function ($a, $b) use ($getSortValue, $orderBy, $orderDir, $search, $toTimestamp) {
             // When searching, the highest score comes first
             if ($search !== null && $search !== '') {
                 $scoreCmp = ($b['_searchScore'] ?? 0) <=> ($a['_searchScore'] ?? 0);
@@ -286,7 +359,7 @@ class Markdown {
             $vb = $getSortValue($b);
 
             if ($orderBy === 'date') {
-                $cmp = strtotime($va ?? '1970-01-01') <=> strtotime($vb ?? '1970-01-01');
+                $cmp = $toTimestamp($va) <=> $toTimestamp($vb);
             } elseif (is_numeric($va) && is_numeric($vb)) {
                 $cmp = $va <=> $vb;
             } else {
@@ -298,15 +371,15 @@ class Markdown {
 
         // Pagination
         $total      = count($allPages);
-        $totalPages = max(1, (int) ceil($total / $perPage));
+        $totalPages = max(1, (int) ceil($total / $count));
 
-        $page   = max(1, min($page, $totalPages));
-        $offset = ($page - 1) * $perPage;
+        $page   = $page === null ? 1 : max(1, min($page, $totalPages));
+        $offset = ($page - 1) * $count;
 
         return [
-            'list'          => array_slice($allPages, $offset, $perPage),
+            'pages'         => array_slice($allPages, $offset, $count),
             'total'         => $total,
-            'per_page'      => $perPage,
+            'count'         => $count,
             'current_page'  => $page,
             'last_page'     => $totalPages,
             'title'         => $allPagesMeta['title'],
@@ -317,45 +390,179 @@ class Markdown {
             '_cache_file'   => $allPagesMeta['_cache_file'],
         ];
     }
-}
 
-/**
- * Filter a list of page metadata by arbitrary fields.
- * - array field (e.g. tags)       -> matches if any item equals the expected value
- * - scalar field (e.g. category)  -> matches if the value equals the expected value
- * - $expected is an array         -> matches if any of the values equals (OR)
- * - multiple fields at once       -> all of them must match (AND)
- * - null / '' / [] filters are ignored
- */
-function filter_pages_by_fields(array $pages, array $filters): array {
-    // URL values are always strings, while YAML values can be int/bool
-    $normalize = fn($v) => is_bool($v) ? ($v ? 'true' : 'false') : (string) $v;
-
-    foreach ($filters as $field => $expected) {
-        if ($expected === null || $expected === '' || $expected === []) {
-            continue;
+    public function getPagesFields(string $route, array $fields = [], array $params = []): array {
+        if (empty($fields)) {
+            return [];
         }
 
-        $expectedValues = array_map($normalize, (array) $expected);
+        $allPagesMeta = $this->getAllPagesMeta($route);
+        $pages = $allPagesMeta['pages'];
 
-        $pages = array_values(array_filter(
-            $pages,
-            function ($p) use ($field, $expectedValues, $normalize) {
-                $actual = $p[$field] ?? null;
-                $actual = is_array($actual) ? $actual : [$actual];
+        if (empty($pages)) {
+            return [];
+        }
 
-                foreach ($actual as $v) {
-                    if (is_scalar($v) && in_array($normalize($v), $expectedValues, true)) {
-                        return true;
+        $base = '/' . trim($route, '/');
+        $result = [];
+
+        foreach ($fields as $field) {
+            // URL parameter name for this field; defaults to the field name itself.
+            $param = $params[$field] ?? $field;
+
+            // Collect unique values: use the value as array key to dedupe cheaply.
+            // The (array) cast handles both scalar fields and list fields.
+            $values = [];
+            foreach ($pages as $page) {
+                foreach ((array) ($page[$field] ?? []) as $value) {
+                    if (is_scalar($value) && $value !== '') {
+                        $values[(string) $value] = true;
                     }
                 }
-
-                return false;
             }
-        ));
+
+            // array_keys() turns numeric-looking keys into ints, so cast back to string.
+            $titles = array_map('strval', array_keys($values));
+            sort($titles, SORT_STRING | SORT_FLAG_CASE);
+
+            // Normalized list of currently selected values from the URL.
+            // Always an array, whether the URL sent one value ("?category=news") or
+            // several ("?tags[]=php&tags[]=js"), which keeps it predictable for callers.
+            $selected = array_values(array_filter(
+                array_map('strval', (array) ($_GET[$param] ?? [])),
+                fn($v) => $v !== ''
+            ));
+
+            $result[$field] = [
+                'selected' => $selected,
+                'state'    => array_map(
+                    fn($title) => [
+                        'title'  => $title,
+                        'route'  => $base . '?' . http_build_query([$param => $title]),
+                        'active' => in_array($title, $selected, true),
+                    ],
+                    $titles
+                ),
+            ];
+        }
+
+        return $result;
     }
 
-    return $pages;
+    public function getPagination(int $currentPage, int $lastPage, string $baseUrl = '', array $extraParams = [], int $window = 2): array {
+        $baseUrl = '/' . trim($baseUrl, '/');
+
+        $urlFor = function (int $p) use ($baseUrl, $extraParams) {
+            $params = array_filter(array_merge($extraParams, ['page' => $p]), fn($v) => $v !== null && $v !== '');
+            return $baseUrl . '?' . http_build_query($params);
+        };
+
+        $pages = [];
+        $lastAdded = 0;
+
+        for ($i = 1; $i <= $lastPage; $i++) {
+            $isEdge   = $i === 1 || $i === $lastPage;
+            $isNearBy = $i >= $currentPage - $window && $i <= $currentPage + $window;
+
+            if ($isEdge || $isNearBy) {
+                $pages[] = ['page' => $i, 'route' => $urlFor($i), 'active' => $i === $currentPage];
+                $lastAdded = $i;
+            } elseif ($lastAdded !== -1 && $i - $lastAdded > 1) {
+                $pages[] = ['page' => '...', 'route' => null, 'active' => false];
+                $lastAdded = -1;
+            }
+        }
+
+        return [
+            'prev'         => $currentPage > 1 ? $urlFor($currentPage - 1) : null,
+            'next'         => $currentPage < $lastPage ? $urlFor($currentPage + 1) : null,
+            'current_page' => $currentPage,
+            'last_page'    => $lastPage,
+            'pages'        => $pages,
+        ];
+    }
+
+    /**
+     * Get a single page's RAW frontmatter + body — no markdown-to-HTML
+     * rendering and no `{{ ... }}` placeholder resolution. Use this for
+     * edit forms (a CMS/admin panel), where the raw markdown source is
+     * what should populate a textarea — `getPage()` renders to HTML and
+     * is NOT suitable for that. Returns null if the file doesn't exist.
+     */
+    public function getRawPage(string $route, string $slug): ?array {
+        $slug = $this->filenameToSlug($slug);
+        $path = $this->contentDir . '/' . $slug . '.md';
+
+        if (!is_file($path)) {
+            return null;
+        }
+
+        [$meta, $body] = $this->parseFrontmatter(file_get_contents($path));
+
+        return array_merge($meta, [
+            'route' => (trim($route, '/') !== '' ? '/' : '') . trim($route, '/') . '/' . $slug,
+            'slug'  => $slug,
+            'body'  => trim($body),
+            '_file' => $path,
+        ]);
+    }
+
+    /**
+     * Create or overwrite `$slug`.md with YAML frontmatter (`$meta`) +
+     * raw `$body`, encoded via `x\y_a_m_l\to()`.
+     *
+     * Null, empty-string, and empty-array values are dropped before
+     * encoding, so unset/empty fields don't clutter the frontmatter
+     * with `field: ~` or `tags: []`.
+     *
+     * `$slug` is re-sanitized here (lowercase + slug rule) regardless of
+     * what the caller already did, so this method is safe to call
+     * directly. Returns the slug actually used, or null if the slug is
+     * empty after sanitizing, or the file couldn't be written.
+     */
+    public function writePage(string $route, string $slug, array $meta, string $body = ''): ?array {
+        $slug = $this->filenameToSlug($slug);
+        $slug = sanitize_fields(['slug' => $slug], ['slug' => ['trim', 'lowercase', 'slug']])['slug'];
+
+        if ($slug === null || $slug === '') {
+            return null;
+        }
+
+        if (!is_dir($this->contentDir) && !mkdir($this->contentDir, 0755, true)) {
+            return null;
+        }
+
+        $path = $this->contentDir . '/' . $slug . '.md';
+
+        $meta = array_filter($meta, fn($v) => $v !== null && $v !== '' && $v !== []);
+        $frontmatter = $meta === [] ? '' : $this->encodeFrontmatter($meta);
+
+        $content = $frontmatter !== '' ? "---\n{$frontmatter}\n---\n\n{$body}\n" : $body . "\n";
+
+        if (file_put_contents($path, $content, LOCK_EX) === false) {
+            return null;
+        }
+
+        return [
+            'route' => (trim($route, '/') !== '' ? '/' : '') . trim($route, '/') . '/' . $slug,
+            'slug'  => $slug,
+        ];
+    }
+
+    /**
+     * Delete `$slug`.md. Deleting is idempotent — a missing file counts
+     * as success. Returns false only on an actual filesystem failure.
+     */
+    public function deletePage(string $slug): bool {
+        $slug = $this->filenameToSlug($slug);
+        $path = $this->contentDir . '/' . $slug . '.md';
+
+        if (!is_file($path)) {
+            return true;
+        }
+
+        return unlink($path);
+    }
 }
 
 /**
@@ -380,196 +587,4 @@ function render_md_from_file(string $file): array {
         'content' => x\markdown\from($body),
         '_file'   => $file,
     ]);
-}
-
-/**
- * Generate a filtered, sorted (and optionally paginated) list of pages
- * for a directory-based markdown entry, delegating the actual work to
- * Markdown::getPages() — reads from the markdown metadata cache file
- * (<dir>/.cache.php).
- *
- * $order_by/$order_dir default to whatever is set in the page's config
- * ('content.order_by' / 'content.order_dir') when not explicitly passed.
- *
- * Pagination is opt-in: pass $page to get back a paginated result
- * (with 'total', 'per_page', 'current_page', 'last_page'). Without $page,
- * this returns a flat 'list' — optionally capped to $count items — which
- * suits callers that don't need pagination (e.g. "latest N posts" widgets).
- *
- * @param string      $route     Dynamic page route.
- * @param int         $count     Cap the flat list to this many items. Ignored when paginating.
- * @param string|null $order_by  Metadata field to sort by. Falls back to page config, then 'title'.
- * @param string|null $order_dir 'asc' or 'desc'. Falls back to page config, then 'asc'.
- * @param array       $filters   Field => value(s) to filter by (see filter_pages_by_fields()).
- * @param string|null $search    Search query, matched against title and body.
- * @param int|null    $page      Current page number. Passing this enables pagination.
- * @param int|null    $perPage   Items per page. Defaults to 10 when paginating.
- */
-function generate_page_list(
-    string $route,
-    int $count = 0,
-    ?string $order_by = null,
-    ?string $order_dir = null,
-    array $filters = [],
-    ?string $search = null,
-    ?int $page = null,
-    ?int $perPage = null
-): array {
-    $page_config = resolve_page($route);
-
-    if ($page_config === null || empty($page_config['content']['dir'])) {
-        return [];
-    }
-
-    $dir = rtrim($page_config['content']['dir'], '/');
-
-    $order_by  = $order_by  ?? ($page_config['content']['order_by']  ?? 'title');
-    $order_dir = $order_dir ?? ($page_config['content']['order_dir'] ?? 'asc');
-
-    $markdown = new Markdown($dir);
-
-    // Pagination is opt-in: only kicks in when $page is explicitly passed.
-    // Without it, fetch everything (perPage = PHP_INT_MAX) so $count can
-    // still cap the result the old way, without paginating.
-    $paginating = $page !== null;
-    $perPage    = $paginating ? ($perPage ?? 10) : PHP_INT_MAX;
-
-    $result = $markdown->getPages(
-        page: $page ?? 1,
-        route: $route,
-        perPage: $perPage,
-        filters: $filters,
-        search: $search,
-        orderBy: $order_by,
-        orderDir: $order_dir
-    );
-
-    $base = [
-        'title' => $page_config['title'] ?? null,
-        'route' => '/' . trim($route, '/'),
-    ];
-
-    if ($paginating) {
-        return $base + [
-            'list'         => $result['list'],
-            'total'        => $result['total'],
-            'per_page'     => $result['per_page'],
-            'current_page' => $result['current_page'],
-            'last_page'    => $result['last_page'],
-        ];
-    }
-
-    $list = $result['list'];
-    if ($count > 0) {
-        $list = array_slice($list, 0, $count);
-    }
-
-    return $base + ['list' => $list];
-}
-
-/**
- * Generate a de-duplicated list of values used for a given metadata field
- * across all pages in a directory-based markdown entry, each with a link to the
- * filtered listing (?{param}=...). Works for scalar fields (e.g. category)
- * and list fields (e.g. tags). Reads from the markdown metadata cache.
- *
- * @param string      $route Markdown page route.
- * @param string      $field Metadata field name (e.g. 'category', 'tags', 'author').
- * @param string|null $param URL query parameter name. Defaults to $field.
- */
-function generate_field_list(string $route, string $field, ?string $param = null): array {
-    $param = $param ?? $field;
-
-    $page_config = resolve_page($route);
-
-    if ($page_config === null || empty($page_config['content']['dir'])) {
-        return [];
-    }
-
-    $dir = rtrim($page_config['content']['dir'], '/');
-
-    // Reads a valid cache directly, or rebuilds it internally if missing/stale.
-    $markdown = new Markdown($dir);
-    $allPagesMeta = $markdown->getAllPagesMeta($route);
-    $pages = $allPagesMeta['pages'];
-
-    if (empty($pages)) {
-        return [];
-    }
-
-    // Collect unique values: use the value as array key to dedupe cheaply.
-    // (array) cast handles both scalar fields and list fields.
-    $values = [];
-    foreach ($pages as $page) {
-        foreach ((array) ($page[$field] ?? []) as $value) {
-            if (is_scalar($value) && $value !== '') {
-                $values[(string) $value] = true;
-            }
-        }
-    }
-
-    // array_keys() turns numeric-looking keys into ints, so cast back to string.
-    $titles = array_map('strval', array_keys($values));
-    sort($titles, SORT_STRING | SORT_FLAG_CASE);
-
-    $base = '/' . trim($route, '/');
-
-    // Normalized, deduped list of currently selected values from the URL.
-    // Always an array, whether the URL sent one value (?category=news) or
-    // several (?tags[]=php&tags[]=js) — keeps this predictable for callers.
-    $selected = array_values(array_filter(
-        array_map('strval', (array) ($_GET[$param] ?? [])),
-        fn($v) => $v !== ''
-    ));
-
-    return [
-        'selected' => $selected,
-        'list'     => array_map(
-            fn($title) => [
-                'title'  => $title,
-                'route'  => $base . '?' . http_build_query([$param => $title]),
-                'active' => in_array($title, $selected, true),
-            ],
-            $titles
-        ),
-    ];
-}
-
-/**
- * Build pagination data (prev, next, list of page numbers with a window
- * around the current page + "..." markers).
- *
- * $baseUrl example: '/blog' -> result '/blog?page=2'
- */
-function generate_pagination(int $currentPage, int $lastPage, string $baseUrl = '', array $extraParams = [], int $window = 2): array {
-    $baseUrl = '/' . trim($baseUrl, '/');
-
-    $urlFor = function (int $p) use ($baseUrl, $extraParams) {
-        $params = array_filter(array_merge($extraParams, ['page' => $p]), fn($v) => $v !== null && $v !== '');
-        return $baseUrl . '?' . http_build_query($params);
-    };
-
-    $pages = [];
-    $lastAdded = 0;
-
-    for ($i = 1; $i <= $lastPage; $i++) {
-        $isEdge   = $i === 1 || $i === $lastPage;
-        $isNearBy = $i >= $currentPage - $window && $i <= $currentPage + $window;
-
-        if ($isEdge || $isNearBy) {
-            $pages[] = ['page' => $i, 'route' => $urlFor($i), 'active' => $i === $currentPage];
-            $lastAdded = $i;
-        } elseif ($lastAdded !== -1 && $i - $lastAdded > 1) {
-            $pages[] = ['page' => '...', 'route' => null, 'active' => false];
-            $lastAdded = -1;
-        }
-    }
-
-    return [
-        'prev'         => $currentPage > 1 ? $urlFor($currentPage - 1) : null,
-        'next'         => $currentPage < $lastPage ? $urlFor($currentPage + 1) : null,
-        'current_page' => $currentPage,
-        'last_page'    => $lastPage,
-        'pages'        => $pages,
-    ];
 }

@@ -10,6 +10,7 @@
  *   'date'        — valid YYYY-MM-DD format
  *   'time'        — HH:MM format
  *   'url'         — valid URL (http/https)
+ *   'slug'        — valid slug (lowercase letters, numbers, hyphens)
  *
  * @param array $data   Flat key-value data from the request
  * @param array $rules  ['field' => ['rule', 'rule:param', ...]]
@@ -51,6 +52,10 @@ function validate_fields(array $data, array $rules): array {
             } elseif ($name === 'url' && $value !== '') {
                 if (!filter_var($value, FILTER_VALIDATE_URL)) {
                     $err = 'Invalid URL.';
+                }
+            } elseif ($name === 'slug' && $value !== '') {
+                if (!preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $value)) {
+                    $err = 'Invalid slug (lowercase letters, numbers, hyphens).';
                 }
             }
 

@@ -1,0 +1,4 @@
+# Uploaded files are data, never code: refuse anything that could be run.
+<FilesMatch "\.(php[0-9]*|phtml|phar|pht|phps|cgi|pl|py|sh)$">
+  Require all denied
+</FilesMatch>

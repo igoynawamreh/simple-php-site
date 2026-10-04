@@ -1,12 +1,18 @@
 <?php
 
+$state = [];
 $site  = [];
 $page  = [];
 $pages = [];
 $pagination = [];
 $is = [];
 
-$site['title'] = STATE['title'] ?? null;
+$state['debug'] = STATE['debug'] ?? false;
+$state['env']   = STATE['env'] ?? 'development';
+$state['title'] = STATE['title'] ?? null;
+$state['zone']  = STATE['zone'] ?? null;
+
+$site['title'] = $state['title'];
 $site['url']   = $home_url;
 
 $page['route']       = $route;
@@ -14,13 +20,6 @@ $page['route:last']  = basename($route) === '' ? null : basename($route);
 $page['route:query'] = substr($_SERVER['REQUEST_URI'], strlen($base_url));
 $page['title']       = $site['title'];
 $page['content']     = null;
-
-foreach ($_GET as $key => $value) {
-    $page['param:' . $key] = $value;
-}
-
-$page['param:page'] = isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1;
-$page['param:per_page'] = max(1, (int) ($_GET['per_page'] ?? 10));
 
 $is['home']      = false;
 $is['page']      = false;
@@ -75,9 +74,22 @@ if (defined('PAGES') && !empty(PAGES)) {
         foreach ($candidates as $mode => $routePattern) {
             $pattern = trim($routePattern ?? '', '/');
 
+            // Build a regex from the URL pattern:
+            // - literal segments are matched as-is
+            // - [name] captures exactly one segment (no slashes)
+            // - [...name] is a catch-all: it must be the LAST segment, and
+            //   captures everything after it, slashes included (e.g. for a
+            //   client-side router / SPA shell mounted under this prefix).
             $regexParts = [];
-            foreach (explode('/', $pattern) as $segment) {
-                if (preg_match('/^\[([a-zA-Z_][a-zA-Z0-9_]*)\]$/', $segment, $m)) {
+            $segments   = explode('/', $pattern);
+
+            foreach ($segments as $i => $segment) {
+                if (preg_match('/^\[\.\.\.([a-zA-Z_][a-zA-Z0-9_]*)\]$/', $segment, $m)) {
+                    // Only meaningful as the final segment; anything after
+                    // it in the pattern would be unreachable.
+                    $regexParts[] = '(?P<' . $m[1] . '>.*)';
+                    break;
+                } elseif (preg_match('/^\[([a-zA-Z_][a-zA-Z0-9_]*)\]$/', $segment, $m)) {
                     $regexParts[] = '(?P<' . $m[1] . '>[^/]+)';
                 } else {
                     $regexParts[] = preg_quote($segment, '#');
@@ -118,7 +130,7 @@ if (defined('PAGES') && !empty(PAGES)) {
             // route's data actually comes from a markdown directory.
             if ($hasContentDir) {
                 $dir      = rtrim($page_config['content']['dir'], '/');
-                $markdown = new Markdown($dir, get_template_renderer());
+                $markdown = new Markdown($dir);
 
                 $page['route:list'] = '/' . $page_config['route'];
                 $page['title:list'] = $page['title'];
@@ -141,33 +153,30 @@ if (defined('PAGES') && !empty(PAGES)) {
                     // Only whitelisted fields from the URL become filters
                     $filters = array_intersect_key($_GET, array_flip($allowedFilters));
 
-                    $page = array_merge($page, [
-                        'param:per_page'  => max(1, (int) ($_GET['per_page'] ?? $page_config['content']['per_page'] ?? 10)),
-                        'param:order_by'  => $_GET['order_by'] ?? $page_config['content']['order_by'] ?? 'title',
-                        'param:order_dir' => $_GET['order_dir'] ?? $page_config['content']['order_dir'] ?? 'asc',
-                    ]);
-
-                    // Make sure these keys always exist, even when missing from the URL
-                    foreach (array_merge(['q'], $allowedFilters) as $key) {
-                        $page['param:' . $key] = $page['param:' . $key] ?? null;
-                    }
+                    $pages['fields'] = $markdown->getPagesFields(
+                        route: $page_config['route'],
+                        fields: $allowedFilters,
+                    );
 
                     $pages = array_merge($pages, $markdown->getPages(
-                        page: $page['param:page'],
                         route: $page_config['route'],
-                        perPage: $page['param:per_page'],
+                        page: max(1, (int) ($_GET['page'] ?? 1)),
+                        count: max(1, (int) ($_GET['count'] ??$page_config['content']['count'] ?? 10)),
+                        search: $_GET['q'] ?? null,
                         filters: $filters,
-                        search: $page['param:q'],
-                        orderBy: $page['param:order_by'],
-                        orderDir: $page['param:order_dir'],
+                        orderBy: $_GET['order_by'] ?? $page_config['content']['order_by'] ?? 'date',
+                        orderDir: $params['order_dir'] = $_GET['order_dir'] ?? $page_config['content']['order_dir'] ?? 'desc',
                     ));
 
-                    $pagination = array_merge($pagination, generate_pagination(
+                    $pagination = array_merge($pagination, $markdown->getPagination(
+                        baseUrl: '/' . trim($page_config['route'], '/'),
                         currentPage: $pages['current_page'],
                         lastPage: $pages['last_page'],
-                        baseUrl: '/' . trim($page_config['route'], '/'),
                         extraParams: array_merge($filters, [
-                            'q' => $page['param:q'],
+                            'count'     => $_GET['count'] ?? null,
+                            'q'         => $_GET['q'] ?? null,
+                            'order_by'  => $_GET['order_by'] ?? null,
+                            'order_dir' => $_GET['order_dir'] ?? null,
                         ]),
                     ));
                 }

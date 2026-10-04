@@ -89,6 +89,7 @@ function get_template_renderer(): TemplateRenderer {
 
         $renderer->setVar('site_title', STATE['title'] ?? 'My Site');
         $renderer->setVar('site_url', $home_url);
+        $renderer->setVar('home_url', $home_url);
         $renderer->setFunction('url', fn($path) => url($path));
         $renderer->setFunction('img', function ($path, $alt = '', $class = '') {
             $src = url($path);

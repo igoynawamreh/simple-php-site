@@ -57,7 +57,7 @@ function format_date(DateTimeInterface|null|string $value, string $format = 'Y-m
  * 'page' itself, 'page' is reset to the first page — the current page
  * number usually no longer makes sense once the result set changes.
  */
-function merge_query_url(string $url): string {
+function merge_query_url(string $url, array $unset = []): string {
     $parsed = parse_url($url);
     $path = $parsed['path'] ?? '';
 
@@ -69,10 +69,9 @@ function merge_query_url(string $url): string {
     // Current URL's params, then overlay with the new ones (new wins on conflict)
     $merged = array_merge($_GET, $newParams);
 
-    // Reset to page 1 whenever a filter/sort change is being applied,
-    // unless the target URL explicitly sets its own 'page' value.
-    if (!array_key_exists('page', $newParams)) {
-        unset($merged['page']);
+    // Unset any other keys the caller requested
+    foreach ($unset as $key) {
+        unset($merged[$key]);
     }
 
     $query = http_build_query($merged);
@@ -88,7 +87,7 @@ function merge_query_url(string $url): string {
  * once its selection becomes empty. Also resets 'page' back to 1, since
  * changing a filter usually invalidates the current page number.
  */
-function toggle_query_value(string $url, string $field, string $value): string {
+function toggle_query_value(string $url, string $field, string $value, array $unset = []): string {
     $parsed = parse_url($url);
     $path   = $parsed['path'] ?? '';
 
@@ -109,7 +108,10 @@ function toggle_query_value(string $url, string $field, string $value): string {
         $params[$field] = $selected;
     }
 
-    unset($params['page']);
+    // Unset any other keys the caller requested
+    foreach ($unset as $key) {
+        unset($params[$key]);
+    }
 
     $query = http_build_query($params);
 
@@ -118,11 +120,11 @@ function toggle_query_value(string $url, string $field, string $value): string {
 
 /**
  * Find the `PAGES` entry whose `route` matches `$route` exactly,
- * tolerant of leading/trailing slash variations ('article', '/article',
- * '/article/' all match the same entry). Does not match dynamic routes
+ * tolerant of leading/trailing slash variations ('blog', '/blog',
+ * '/blog/' all match the same entry). Does not match dynamic routes
  * with placeholders (e.g. '/blog/[foo]') against a concrete path.
  */
-function resolve_page(string $route): ?array {
+function resolve_page_config(string $route): ?array {
     $normalized = '/' . trim($route, '/');
 
     foreach (PAGES as $page) {
@@ -134,4 +136,23 @@ function resolve_page(string $route): ?array {
     }
 
     return null;
+}
+
+/**
+ * Convert an absolute path to a path relative to the project root
+ * project folder name
+ * (e.g. /var/www/simple-php-site/foo/bar/content
+ *       -> foo/bar/content).
+ */
+function to_relative_path(string $absPath): string {
+    // This file lives in <project>/engine/, so the project root is one levels up.
+    $root    = rtrim(str_replace('\\', '/', dirname(__DIR__, 1)), '/');
+    $absPath = str_replace('\\', '/', $absPath);
+
+    // Outside the project root: leave it untouched
+    if (strpos($absPath, $root . '/') !== 0) {
+        return $absPath;
+    }
+
+    return ltrim(substr($absPath, strlen($root)), '/');
 }
