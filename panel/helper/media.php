@@ -21,7 +21,7 @@ const MEDIA_EXTENSIONS = [
 
 /** The media folder (created on first use, with a hardened .htaccess). */
 function media_dir(): string {
-    $dir = dirname(__DIR__) . '/media';
+    $dir = dirname(__DIR__, 2) . '/media';
 
     if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
         json_error('Could not create the media folder. Check the permissions of the project root.', 500);

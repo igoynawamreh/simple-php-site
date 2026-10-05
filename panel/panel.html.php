@@ -1,6 +1,6 @@
 <?php
 
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/helper/auth.php';
 
 // When `$state['env']` (in "config.js") is `development`, the Vite dev
 // server must be running (`npm run dev`) for this page to load

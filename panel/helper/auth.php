@@ -12,7 +12,7 @@
 // The file name starts with a dot, so ".htaccess" already denies access to
 // it over HTTP.
 
-const PANEL_PASSWORD_FILE = __DIR__ . '/.password';
+const PANEL_PASSWORD_FILE = __DIR__ . '/../.password';
 const PANEL_SESSION_KEY   = 'panel_auth';
 
 /**

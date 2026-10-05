@@ -2,7 +2,7 @@
 
 // Query: page, count, q, type (image|document|other), order_by (date|name|size), order_dir
 
-require_once __DIR__ . '/../media.php';
+require_once __DIR__ . '/../helper/media.php';
 
 $q = strtolower(trim((string) ($_GET['q'] ?? '')));
 

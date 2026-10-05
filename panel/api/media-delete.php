@@ -1,6 +1,6 @@
 <?php
 
-require_once __DIR__ . '/../media.php';
+require_once __DIR__ . '/../helper/media.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     json_error('Method not allowed.', 405);
