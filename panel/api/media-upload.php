@@ -3,7 +3,7 @@
 // POST multipart/form-data with one or more files in `files[]`.
 //
 // Request-level problems return an error. Otherwise the response is
-// { success: true, results: [{ file, success, message?, item? }, ...] },
+// `{ success: true, results: [{ file, success, message?, item? }, ...] }`,
 // with one entry per file, so one bad file doesn't lose the others.
 
 require_once __DIR__ . '/../helper/media.php';
@@ -12,8 +12,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     json_error('Method not allowed.', 405);
 }
 
-// When the whole request is bigger than post_max_size, PHP throws the body
-// away: $_FILES is empty even though data was sent.
+// When the whole request is bigger than `post_max_size`, PHP throws the body
+// away: `$_FILES` is empty even though data was sent.
 $postMax = media_ini_bytes('post_max_size');
 if ((int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > $postMax) {
     json_error('The upload is larger than the server allows (' . media_format_size($postMax) . ' per request).', 413);
@@ -36,7 +36,7 @@ $uploadErrors = [
     UPLOAD_ERR_EXTENSION  => 'The upload was blocked by a PHP extension.',
 ];
 
-// $_FILES['files'] is a column-per-field array: turn it into one entry per file
+// `$_FILES['files']` is a column-per-field array: turn it into one entry per file
 $files = [];
 foreach ((array) $_FILES['files']['name'] as $i => $name) {
     $files[] = [

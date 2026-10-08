@@ -1,6 +1,6 @@
 <?php
 
-// Query: page, count, q, type (image|document|other), order_by (date|name|size), order_dir
+// Query: `page`, `count`, `q`, `type` (image|document|other), `order_by` (date|name|size), `order_dir`
 
 require_once __DIR__ . '/../helper/media.php';
 

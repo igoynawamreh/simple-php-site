@@ -19,4 +19,4 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin vitae sem rhoncus
 
 ![Image 01]({{ url('/media/image-01.jpg') }})
 
-{{ home_url }}
+{{ site_url }}

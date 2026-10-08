@@ -412,7 +412,7 @@ async function removeItem(slug: string) {
     const res = await deletePage(configRoutePath.value, slug);
     if (!res.success) throw new Error(res.message ?? 'Failed to delete the page.');
     confirmingSlug.value = null;
-    // Reload; if this emptied the last page, load() steps back one page
+    // Reload; if this emptied the last page, `load()` steps back one page
     await load();
   } catch (e) {
     deleteError.value = e instanceof Error ? e.message : 'Failed to delete the page.';

@@ -2,12 +2,12 @@
 
 require_once __DIR__ . '/helper/auth.php';
 
-// When `$state['env']` (in "config.js") is `development`, the Vite dev
+// When `$state['env']` (in "config.php") is `development`, the Vite dev
 // server must be running (`npm run dev`) for this page to load
 // correctly — it serves the unbuilt assets referenced below instead of
 // the production build.
 //
-// To skip running the dev server, set `$state['env']` (in "config.js")
+// To skip running the dev server, set `$state['env']` (in "config.php")
 // to `production` instead, and run `npm run build` every time the code changes.
 $isDev = $state['env'] === 'development';
 

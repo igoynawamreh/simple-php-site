@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Validate $data against $rules.
+ * Validate `$data` against `$rules`.
  *
  * Rule syntax:
  *   'required'    — must not be empty (after trim)
@@ -20,8 +20,8 @@ function validate_fields(array $data, array $rules): array {
     $errors = [];
 
     foreach ($rules as $field => $fieldRules) {
-        // array_key_exists so fields with null values (from clean_value) are still detected.
-        // null is treated the same as an empty string.
+        // `array_key_exists` so fields with `null` values (from `clean_value`) are still detected.
+        // `null` is treated the same as an empty string.
         $raw   = array_key_exists($field, $data) ? $data[$field] : null;
         $value = ($raw === null) ? '' : trim((string) $raw);
 

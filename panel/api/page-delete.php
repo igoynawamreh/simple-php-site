@@ -18,7 +18,7 @@ if ($slug === '') {
 
 $markdown = new Markdown($route_path);
 
-// deletePage() treats a missing file as success; the panel wants to know
+// `deletePage()` treats a missing file as success; the panel wants to know
 if ($markdown->getRawPage($route_path, $slug) === null) {
     json_error('Page not found.', 404);
 }

@@ -1,13 +1,13 @@
 <?php
 
 /**
- * Renders {{ variable }} and {{ function('arg') }} placeholders inside
+ * Renders `{{ variable }}` and `{{ function('arg') }}` placeholders inside
  * markdown content BEFORE it's passed to @taufik-nurrohman/markdown.
  *
- * Deliberately does NOT use eval() — only whitelisted variables and
- * functions registered via setVar()/setFunction() can be referenced.
+ * Deliberately does NOT use `eval()` — only whitelisted variables and
+ * functions registered via `setVar()`/`setFunction()` can be referenced.
  * The argument parser only supports simple quoted-string arguments
- * (e.g. url('path/to/image.jpg')), not full PHP expressions — this is
+ * (e.g. `url('path/to/image.jpg'))`, not full PHP expressions — this is
  * intentional, to keep the surface area small and safe.
  */
 class TemplateRenderer {
@@ -34,7 +34,7 @@ class TemplateRenderer {
     }
 
     private function resolve(string $expr): string {
-        // Function call: name('arg1', 'arg2')
+        // Function call: `name('arg1', 'arg2')`
         if (preg_match('/^([a-zA-Z_][a-zA-Z0-9_]*)\((.*)\)$/s', $expr, $m)) {
             $name = $m[1];
 
@@ -46,7 +46,7 @@ class TemplateRenderer {
             return (string) call_user_func_array($this->functions[$name], $args);
         }
 
-        // Plain variable: site_url
+        // Plain variable: `home_url`
         if (preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $expr)) {
             return (string) ($this->vars[$expr] ?? '');
         }
@@ -75,7 +75,7 @@ class TemplateRenderer {
 }
 
 /**
- * Returns a configured TemplateRenderer instance with the site's
+ * Returns a configured `TemplateRenderer` instance with the site's
  * whitelisted vars/functions registered. Built once per request
  * (static cache) since the config never changes mid-request.
  */

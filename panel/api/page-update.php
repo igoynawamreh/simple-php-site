@@ -32,7 +32,7 @@ if ($existing === null) {
     json_error('Page not found.', 404);
 }
 
-// writePage() re-sanitizes the slug. If this file's name would change under
+// `writePage()` re-sanitizes the slug. If this file's name would change under
 // that rule, saving would create a second file instead of updating this one.
 $normalized_slug = sanitize_fields(['slug' => $existing['slug']], ['slug' => ['trim', 'lowercase', 'slug']])['slug'];
 if ($normalized_slug !== $existing['slug']) {
@@ -50,7 +50,7 @@ $tags = array_values(array_filter((array) ($_POST['tags'] ?? []), fn($t) => $t !
 
 // Start from the existing frontmatter so fields the panel doesn't edit
 // survive the save; only the fields below are replaced. Empty values are
-// dropped by writePage(), which is how a cleared field is removed.
+// dropped by `writePage()`, which is how a cleared field is removed.
 $meta = $existing;
 unset($meta['route'], $meta['slug'], $meta['body'], $meta['_file']);
 

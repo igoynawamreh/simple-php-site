@@ -45,7 +45,7 @@ $data = sanitize_fields($_POST, [
 
 // Start from the existing frontmatter so fields the panel doesn't edit
 // survive the save; only the fields below are replaced. Empty values are
-// dropped by writePage(), which is how a cleared field is removed.
+// dropped by `writePage()`, which is how a cleared field is removed.
 $meta = $existing;
 unset($meta['route'], $meta['slug'], $meta['body'], $meta['_file']);
 

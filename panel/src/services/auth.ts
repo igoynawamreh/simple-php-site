@@ -4,7 +4,7 @@ import router from '@/router';
 const getBasePath = () => router.options.history.base || '/';
 
 // Shared login state. The server tells us the initial value when it renders
-// the page; http.ts flips it to false when an API call comes back 401
+// the page; "lib/http.ts" flips it to `false` when an API call comes back `401`
 // (e.g. the session expired).
 export const auth = reactive({
   loggedIn: !!window.APP.AUTHENTICATED,

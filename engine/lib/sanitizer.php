@@ -12,8 +12,8 @@
  *   'uppercase'       — convert to uppercase
  *   'slug'            — convert to slug format (letters, numbers, hyphens)
  *
- * Null values (empty fields from clean_value) are skipped — left unchanged.
- * After sanitizing, empty strings are returned as null.
+ * Null values (empty fields from `clean_value`) are skipped — left unchanged.
+ * After sanitizing, empty strings are returned as `null`.
  *
  * @param array $data   Flat key-value data
  * @param array $rules  ['field' => ['rule', ...]]
@@ -44,7 +44,7 @@ function sanitize_fields(array $data, array $rules): array {
             };
         }
 
-        // Empty string after sanitizing → returned as null (consistent with clean_value)
+        // Empty string after sanitizing → returned as `null` (consistent with `clean_value`)
         $data[$field] = $value === '' ? null : $value;
     }
 

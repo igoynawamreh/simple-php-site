@@ -6,7 +6,7 @@
 // web server serves them directly at "<base url>/media/<name>".
 
 // Largest single file we accept. The effective limit is also capped by
-// php.ini (upload_max_filesize and post_max_size).
+// php.ini (`upload_max_filesize` and `post_max_size`).
 const MEDIA_MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
 // Allowed extensions, grouped by type. Anything else is rejected on upload.
@@ -19,7 +19,7 @@ const MEDIA_EXTENSIONS = [
     'other'    => ['zip'],
 ];
 
-/** The media folder (created on first use, with a hardened .htaccess). */
+/** The media folder (created on first use, with a hardened ".htaccess"). */
 function media_dir(): string {
     $dir = dirname(__DIR__, 2) . '/media';
 
@@ -88,7 +88,7 @@ function media_format_size(int $bytes): string {
 }
 
 /**
- * Turn an uploaded file name into a safe [base, extension] pair:
+ * Turn an uploaded file name into a safe `[base, extension]` pair:
  * ASCII letters, digits, "-" and "_" only, and a single dot. Dots inside the
  * name are replaced, so "x.php.jpg" can never be read as a PHP file by a
  * server that looks at every extension.
@@ -116,7 +116,7 @@ function media_unique_name(string $dir, string $base, string $ext): string {
 }
 
 /**
- * Full path of an existing media file, or null. Only plain file names are
+ * Full path of an existing media file, or `null`. Only plain file names are
  * accepted: no directories, no ".." and no dot-files (".htaccess").
  */
 function media_resolve(string $name): ?string {

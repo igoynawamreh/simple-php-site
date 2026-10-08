@@ -6,7 +6,7 @@ if ($route_path === null) {
     json_error('Missing routePath.', 400);
 }
 
-// Query: page, count, q, category, tags[], order_by, order_dir
+// Query: `page`, `count`, `q`, `category`, `tags[]`, `order_by`, `order_dir`
 $allowedFilters = ['category', 'tags'];
 // Only whitelisted fields from the URL become filters
 $filters = array_intersect_key($_GET, array_flip($allowedFilters));
@@ -39,7 +39,7 @@ $pagination = $markdown->getPagination(
 $fields = $markdown->getPagesFields(route: $route_path, fields: $allowedFilters);
 
 // Only expose what the panel needs: no absolute server paths (`_file`,
-// `_cache_file`, ...) and no DateTime objects in the JSON.
+// `_cache_file`, ...) and no `DateTime` objects in the JSON.
 $data = array_map(static function (array $p): array {
     $date = $p['date'] ?? null;
     return [

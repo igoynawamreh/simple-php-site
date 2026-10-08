@@ -43,7 +43,7 @@ function auth_is_logged_in(): bool {
     return ($_SESSION[PANEL_SESSION_KEY] ?? false) === true;
 }
 
-/** The stored password (or hash), or null when it is missing/empty. */
+/** The stored password (or hash), or `null` when it is missing/empty. */
 function auth_stored_password(): ?string {
     if (!is_file(PANEL_PASSWORD_FILE)) {
         return null;
@@ -58,7 +58,7 @@ function auth_check_password(string $input): bool {
         return false;
     }
 
-    // A hash from password_hash(), otherwise a plain-text password
+    // A hash from `password_hash()`, otherwise a plain-text password
     if (password_get_info($stored)['algo'] !== null) {
         return password_verify($input, $stored);
     }

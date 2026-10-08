@@ -7,7 +7,7 @@ export type MediaType = 'image' | 'document' | 'other'
 
 export interface MediaItem {
   name: string
-  // Site-relative URL, e.g. /media/photo.jpg
+  // Site-relative URL, e.g. "/media/photo.jpg"
   url: string
   ext: string
   type: MediaType

@@ -8,7 +8,7 @@ $pagination = [];
 $is = [];
 
 $state['debug'] = STATE['debug'] ?? false;
-$state['env']   = STATE['env'] ?? 'development';
+$state['env']   = STATE['env'] ?? 'production';
 $state['title'] = STATE['title'] ?? null;
 $state['zone']  = STATE['zone'] ?? null;
 
@@ -38,8 +38,11 @@ if ($route === '') {
     if (isset(HOME_PAGE['content'])) {
         $content_file = HOME_PAGE['content'];
         if (is_file($content_file)) {
-            $render_md = render_md_from_file($content_file);
-            $page = array_merge($page, $render_md);
+            $markdown = new Markdown($content_file);
+            $page = array_merge(
+                $page,
+                $markdown->getPage('/', $content_file)
+            );
             $is['markdown'] = true;
         }
     }
@@ -52,16 +55,12 @@ if ($route === '') {
  */
 if (defined('PAGES') && !empty(PAGES)) {
     foreach (PAGES as $page_config) {
-        // Auto list/item routing is driven by the shape of `template`: a route
-        // gets both a list pattern (the route as-is) and an item pattern
-        // (route + `/[slug]`) whenever `template` is { list, item } instead of
-        // a single file path.
+        // A `template` of `{ list, item }` registers two patterns:
+        // the route itself (list) and the route + `/[slug]` (item)
         $hasListItemTemplate = is_array($page_config['template'] ?? null)
             && isset($page_config['template']['list'], $page_config['template']['item']);
 
-        // Whether markdown data actually comes from a directory. Independent
-        // of `$hasListItemTemplate` — a list/item template pair could, in
-        // principle, source its data from somewhere other than markdown.
+        // `true` when `content` has a `dir`. Independent of `$hasListItemTemplate`.
         $hasContentDir = isset($page_config['content']['dir']);
 
         $candidates = $hasListItemTemplate
@@ -74,19 +73,15 @@ if (defined('PAGES') && !empty(PAGES)) {
         foreach ($candidates as $mode => $routePattern) {
             $pattern = trim($routePattern ?? '', '/');
 
-            // Build a regex from the URL pattern:
-            // - literal segments are matched as-is
-            // - [name] captures exactly one segment (no slashes)
-            // - [...name] is a catch-all: it must be the LAST segment, and
-            //   captures everything after it, slashes included (e.g. for a
-            //   client-side router / SPA shell mounted under this prefix).
+            // Turns the pattern into a regex: literal segments match as-is,
+            // `[name]` captures one segment, and `[...name]` captures the rest
+            // of the path (slashes included), so it must be the last segment.
             $regexParts = [];
             $segments   = explode('/', $pattern);
 
             foreach ($segments as $i => $segment) {
                 if (preg_match('/^\[\.\.\.([a-zA-Z_][a-zA-Z0-9_]*)\]$/', $segment, $m)) {
-                    // Only meaningful as the final segment; anything after
-                    // it in the pattern would be unreachable.
+                    // Segments after a catch-all would be unreachable
                     $regexParts[] = '(?P<' . $m[1] . '>.*)';
                     break;
                 } elseif (preg_match('/^\[([a-zA-Z_][a-zA-Z0-9_]*)\]$/', $segment, $m)) {
@@ -101,6 +96,7 @@ if (defined('PAGES') && !empty(PAGES)) {
                 continue;
             }
 
+            // Captured segments become `$page['route:<name>']`
             foreach ($matches as $key => $value) {
                 if (is_string($key)) {
                     $page['route:' . $key] = $value;
@@ -116,18 +112,20 @@ if (defined('PAGES') && !empty(PAGES)) {
                 $is['page_list'] = true;
             }
 
-            // Single file Markdown
+            // `content` is a single Markdown file
             if (isset($page_config['content']) && !is_array($page_config['content'])) {
                 $content_file = $page_config['content'];
                 if (is_file($content_file)) {
-                    $render_md = render_md_from_file($content_file);
-                    $page = array_merge($page, $render_md);
+                    $markdown = new Markdown($content_file);
+                    $page = array_merge(
+                        $page,
+                        $markdown->getPage($page_config['route'], $content_file)
+                    );
                     $is['markdown'] = true;
                 }
             }
 
-            // Directory-based Markdown — populates `$page`/`$pages` when this
-            // route's data actually comes from a markdown directory.
+            // `content.dir` is a Markdown directory: fills `$page` (item) or `$pages` (list)
             if ($hasContentDir) {
                 $dir      = rtrim($page_config['content']['dir'], '/');
                 $markdown = new Markdown($dir);
@@ -139,18 +137,17 @@ if (defined('PAGES') && !empty(PAGES)) {
                     $slug = $page['route:slug'] ?? '';
                     $item = $markdown->getPage($page_config['route'], $slug);
 
-                    // No matching file for this slug,
-                    // fall through to the next PAGES entry / 404.
+                    // No file for this slug: try the next `PAGES` entry, then the 404 page
                     if ($item === null) {
                         continue 2;
                     }
 
                     $page = array_merge($page, $item);
                 } elseif ($mode === 'list') {
-                    // Fields that may be used as filter (per page config, with a default)
+                    // Allowed filter fields: `content.filter`, default `category` and `tags`
                     $allowedFilters = $page_config['content']['filter'] ?? ['category', 'tags'];
 
-                    // Only whitelisted fields from the URL become filters
+                    // Only allowed fields from `$_GET` become filters
                     $filters = array_intersect_key($_GET, array_flip($allowedFilters));
 
                     $pages['fields'] = $markdown->getPagesFields(
@@ -182,7 +179,6 @@ if (defined('PAGES') && !empty(PAGES)) {
                 }
             }
 
-            // Resolve which template file to require
             $template = $hasListItemTemplate
                 ? ($page_config['template'][$mode] ?? $page_config['template']['list'])
                 : $page_config['template'];
@@ -194,7 +190,8 @@ if (defined('PAGES') && !empty(PAGES)) {
 }
 
 /**
- * Custom pages
+ * Custom pages. Each template is included without `exit`, so a template must
+ * call `exit` itself; otherwise the 404 page below is rendered as well.
  */
 if (defined('CUSTOM_PAGES') && !empty(CUSTOM_PAGES)) {
     foreach (CUSTOM_PAGES as $custom_page) {
@@ -212,8 +209,11 @@ $is['404'] = true;
 if (isset(ERROR_PAGE['content'])) {
     $content_file = ERROR_PAGE['content'];
     if (is_file($content_file)) {
-        $render_md = render_md_from_file($content_file);
-        $page = array_merge($page, $render_md);
+        $markdown = new Markdown($content_file);
+        $page = array_merge(
+            $page,
+            $markdown->getPage('/', $content_file)
+        );
         $is['markdown'] = true;
     }
 }

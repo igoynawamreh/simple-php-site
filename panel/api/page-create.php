@@ -40,7 +40,7 @@ $markdown = new Markdown($route_path);
 
 // Refuse to silently overwrite an existing page via "create"
 if ($markdown->getRawPage($route_path,$slug) !== null) {
-    json_validation_error(['slug' => 'An page with this slug already exists.']);
+    json_validation_error(['slug' => 'A page with this slug already exists.']);
 }
 
 $tags = array_values(array_filter((array) ($_POST['tags'] ?? []), fn($t) => $t !== ''));

@@ -7,18 +7,16 @@ require_once __DIR__ . '/lib/response.php';
 require_once __DIR__ . '/lib/markdown.php';
 
 /**
- * [E]scape HTML [at]tribute’s value
+ * Escapes `$value` for HTML text and attributes. `null` becomes `''`.
  */
 function e(?string $value): string {
     return htmlspecialchars($value ?? '', ENT_HTML5 | ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
 /**
- * URL helper
+ * Builds an absolute URL from `$home_url`. Slashes around `$route` are ignored.
  *   url()            -> "https://example.com"
- *   url('/')         -> "https://example.com"
- *   url('blog/foo')  -> "https://example.com/blog/foo"
- *   url('/blog/bar') -> "https://example.com/blog/bar"
+ *   url('/blog/foo') -> "https://example.com/blog/foo"
  */
 function url(string $route = ''): string {
     global $home_url;
@@ -27,9 +25,8 @@ function url(string $route = ''): string {
 }
 
 /**
- * Format a date string (e.g. '2026-01-01' or '2026-01-01 00:00')
- * using a PHP date() format string. Returns '' if $value is empty/null
- * or can't be parsed.
+ * Formats a date (`DateTimeInterface` or string) with a `date()` format.
+ * Returns `''` if `$value` is empty or can't be parsed.
  */
 function format_date(DateTimeInterface|null|string $value, string $format = 'Y-m-d'): string {
     if ($value === null) {
@@ -49,13 +46,9 @@ function format_date(DateTimeInterface|null|string $value, string $format = 'Y-m
 }
 
 /**
- * Merge a target URL's query params with the CURRENT request's query
- * params ($_GET) — the target URL's own params win on key collisions,
- * everything else from the current URL is preserved.
- *
- * When the target URL changes a filter/sort param without specifying
- * 'page' itself, 'page' is reset to the first page — the current page
- * number usually no longer makes sense once the result set changes.
+ * Merges the query params of `$url` into the current `$_GET`; params in `$url` win.
+ * Keys in `$unset` are removed, e.g. `'page'` to go back to the first page.
+ * Returns only the path and query of `$url`.
  */
 function merge_query_url(string $url, array $unset = []): string {
     $parsed = parse_url($url);
@@ -66,10 +59,8 @@ function merge_query_url(string $url, array $unset = []): string {
         parse_str($parsed['query'], $newParams);
     }
 
-    // Current URL's params, then overlay with the new ones (new wins on conflict)
     $merged = array_merge($_GET, $newParams);
 
-    // Unset any other keys the caller requested
     foreach ($unset as $key) {
         unset($merged[$key]);
     }
@@ -80,12 +71,10 @@ function merge_query_url(string $url, array $unset = []): string {
 }
 
 /**
- * Toggle a single value inside a multi-value query parameter
- * (e.g. ?tags[]=foo&tags[]=bar), based on the CURRENT request's query
- * params ($_GET). If the value is already selected, it's removed; if
- * not, it's added. The field is removed entirely from the query string
- * once its selection becomes empty. Also resets 'page' back to 1, since
- * changing a filter usually invalidates the current page number.
+ * Adds `$value` to the multi-value param `$field` of the current `$_GET`
+ * (e.g. `?tags[]=foo&tags[]=bar`), or removes it if already selected.
+ * The param is dropped once no value is left.
+ * Keys in `$unset` are removed, e.g. `'page'` to go back to the first page.
  */
 function toggle_query_value(string $url, string $field, string $value, array $unset = []): string {
     $parsed = parse_url($url);
@@ -108,7 +97,6 @@ function toggle_query_value(string $url, string $field, string $value, array $un
         $params[$field] = $selected;
     }
 
-    // Unset any other keys the caller requested
     foreach ($unset as $key) {
         unset($params[$key]);
     }
@@ -119,10 +107,9 @@ function toggle_query_value(string $url, string $field, string $value, array $un
 }
 
 /**
- * Find the `PAGES` entry whose `route` matches `$route` exactly,
- * tolerant of leading/trailing slash variations ('blog', '/blog',
- * '/blog/' all match the same entry). Does not match dynamic routes
- * with placeholders (e.g. '/blog/[foo]') against a concrete path.
+ * Returns the `PAGES` entry whose `route` equals `$route`, ignoring slashes
+ * around it (`'blog'`, `'/blog'` and `'/blog/'` match alike).
+ * Placeholder routes such as `/blog/[foo]` are not matched against concrete paths.
  */
 function resolve_page_config(string $route): ?array {
     $normalized = '/' . trim($route, '/');
@@ -139,17 +126,15 @@ function resolve_page_config(string $route): ?array {
 }
 
 /**
- * Convert an absolute path to a path relative to the project root
- * project folder name
- * (e.g. /var/www/simple-php-site/foo/bar/content
- *       -> foo/bar/content).
+ * Converts an absolute path to a path relative to the project root, e.g.
+ * `/var/www/simple-php-site/foo/bar` -> `foo/bar`.
+ * Paths outside the project root are returned unchanged.
  */
 function to_relative_path(string $absPath): string {
-    // This file lives in <project>/engine/, so the project root is one levels up.
+    // This file is in `engine/*`, so the project root is one level up
     $root    = rtrim(str_replace('\\', '/', dirname(__DIR__, 1)), '/');
     $absPath = str_replace('\\', '/', $absPath);
 
-    // Outside the project root: leave it untouched
     if (strpos($absPath, $root . '/') !== 0) {
         return $absPath;
     }
