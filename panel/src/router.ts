@@ -28,7 +28,7 @@ declare module 'vue-router' {
 }
 
 const router = createRouter({
-  history: createWebHistory('/panel'),
+  history: createWebHistory(window.APP.BASE_URL + '/panel'),
   routes: [
     {
       path: '/',
