@@ -27,7 +27,6 @@
             v-for="category in fields.category"
             :key="category"
             :model-value="filters.category === category"
-            @select.prevent
             @update:model-value="setCategory(category)"
           >
             {{ category }}
