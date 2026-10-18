@@ -4,7 +4,7 @@
     <div class="flex flex-wrap items-center gap-2">
       <div class="relative w-full sm:w-64">
         <Search class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input v-model="search" type="search" placeholder="Search pages" class="pl-8" />
+        <Input ref="searchInputRef" v-model="search" type="search" placeholder="Search pages" class="pl-8" />
       </div>
 
       <DropdownMenu>
@@ -244,7 +244,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import type { LocationQueryValue } from 'vue-router';
 import { useDebounceFn } from '@vueuse/core';
@@ -281,6 +281,8 @@ const PAGE_SIZE = 20;
 
 const route = useRoute();
 const router = useRouter();
+
+const searchInputRef = ref<any>(null);
 
 const configRoutePath = computed(() => props.configRoutePath ?? '');
 
@@ -322,6 +324,12 @@ const search = ref(filters.value.q);
 const applySearch = useDebounceFn((value: string) => {
   if (value.trim() !== filters.value.q) updateQuery({ q: value.trim() });
 }, 300);
+
+onMounted(() => {
+  const ref = searchInputRef.value?.$el;
+  ref && (ref.focus(), ref.select());
+});
+
 watch(search, (value) => applySearch(String(value)));
 // Keep the box in sync when the URL changes from elsewhere (reset, back button)
 watch(

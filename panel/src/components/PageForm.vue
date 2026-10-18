@@ -8,6 +8,7 @@
           id="page-title"
           v-model="form.title"
           maxlength="200"
+          ref="titleInputRef"
           required
           :aria-invalid="!!err('title')"
         />
@@ -131,6 +132,7 @@ const props = defineProps<{
 }>();
 
 const route = useRoute();
+const titleInputRef = ref<any>(null);
 
 const parentPath = computed(() => route.matched.at(-2)?.path ?? '/');
 
@@ -148,6 +150,11 @@ const form = reactive({
   tags: [] as string[],
   thumbnail: '',
   body: '',
+});
+
+onMounted(() => {
+  const ref = titleInputRef.value?.$el;
+  ref && (ref.focus(), ref.select());
 });
 
 watch(
