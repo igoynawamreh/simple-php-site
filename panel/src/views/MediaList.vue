@@ -10,7 +10,7 @@
     <div class="flex flex-wrap items-center gap-2">
       <div class="relative w-full sm:w-64">
         <Search class="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input v-model="search" type="search" placeholder="Search files" class="pl-8" />
+        <Input ref="searchInputRef" v-model="search" type="search" placeholder="Search files" class="pl-8" />
       </div>
 
       <div class="flex items-center gap-1" role="group" aria-label="Filter by type">
@@ -210,7 +210,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import type { LocationQueryValue } from 'vue-router';
 import { useDebounceFn } from '@vueuse/core';
@@ -239,6 +239,8 @@ const PAGE_SIZE = 24;
 
 const route = useRoute();
 const router = useRouter();
+
+const searchInputRef = ref<any>(null);
 
 // The URL (?q=&type=&page=) is the single source of truth, so filters survive
 // a refresh and work with the browser's back button.
@@ -285,6 +287,12 @@ const search = ref(filters.value.q);
 const applySearch = useDebounceFn((value: string) => {
   if (value.trim() !== filters.value.q) updateQuery({ q: value.trim() });
 }, 300);
+
+onMounted(() => {
+  const ref = searchInputRef.value?.$el;
+  ref && (ref.focus(), ref.select());
+});
+
 watch(search, (value) => applySearch(String(value)));
 // Keep the box in sync when the URL changes from elsewhere (back button)
 watch(

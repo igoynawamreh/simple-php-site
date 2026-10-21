@@ -8,6 +8,7 @@
           id="page-title"
           v-model="form.title"
           maxlength="200"
+          ref="titleInputRef"
           required
           :aria-invalid="!!err('title')"
         />
@@ -47,7 +48,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -60,6 +61,7 @@ const props = defineProps<{
 }>();
 
 const route = useRoute();
+const titleInputRef = ref<any>(null);
 
 const parentPath = computed(() => route.matched.at(-2)?.path ?? '/');
 
@@ -72,6 +74,11 @@ const form = reactive({
   title: '',
   date: '',
   body: '',
+});
+
+onMounted(() => {
+  const ref = titleInputRef.value?.$el;
+  ref && (ref.focus(), ref.select());
 });
 
 watch(
