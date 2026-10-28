@@ -1170,9 +1170,7 @@ namespace x\markdown\from {
                     continue;
                 }
                 $str = s($value, $i, $m[0], 0, 4);
-                $w = \strspn($str, ' ');
-                $w += \strspn($str, "\v", $w);
-                if ($w = $w % 4) {
+                if ($w = \strspn($str, " \v") % 4) {
                     $str = \str_repeat(' ', $w) . \substr($str, $w);
                 }
                 $s = $str;
@@ -1188,9 +1186,7 @@ namespace x\markdown\from {
                         break;
                     }
                     $str = s($value, $i, $m[0], 0, 4);
-                    $w = \strspn($str, ' ');
-                    $w += \strspn($str, "\v", $w);
-                    if ($w = $w % 4) {
+                    if ($w = \strspn($str, " \v") % 4) {
                         $str = \str_repeat(' ', $w) . \substr($str, $w);
                     }
                     $s .= "\n" . $str;
@@ -1396,7 +1392,7 @@ namespace x\markdown\from {
             if ('>' === $value[$d + $i]) {
                 "" !== $s && ($rows[] = ['p', $s, []]) && ($s = "");
                 $str = s($value, $i, $m[0], $d++, $d);
-                if ($str && false !== \strpos(" \v", $str[0])) {
+                if (false !== \strpos(" \v", $str[0] ?? x1)) {
                     $str = \substr($str, 1);
                 }
                 $s .= $str;
@@ -1753,7 +1749,7 @@ namespace x\markdown\from {
                         $w = \strspn($str, ' ');
                         $str = \substr($str, $x);
                         $t = \strspn($str, "\v");
-                        if ($t && ($x = $t % 4) && $d !== $w) {
+                        if ($t && 0 !== ($x = $t % 4) && $d !== $w) {
                             $str = \str_repeat(' ', $x) . \substr($str, $x);
                         }
                     }
